@@ -2,11 +2,9 @@
 # Invoked by primary CI (workflow_call) and on schedule / push / PR.
 name: SAST
 
+# Auto runs only via primary CI (workflow_call) + weekly schedule.
+# Avoid duplicate concurrent runs that starve the Actions queue.
 on:
-  push:
-    branches: [main, develop]
-  pull_request:
-    branches: [main, develop]
   schedule:
     - cron: "0 6 * * 1"
   workflow_dispatch:

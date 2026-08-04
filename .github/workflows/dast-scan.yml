@@ -2,11 +2,8 @@
 # Hardwired fail-closed: fail_action true; findings fail the job.
 name: DAST
 
+# Auto runs only via primary CI (workflow_call) + weekly schedule.
 on:
-  push:
-    branches: [main, develop]
-  pull_request:
-    branches: [main, develop]
   schedule:
     - cron: "0 7 * * 1"
   workflow_dispatch:

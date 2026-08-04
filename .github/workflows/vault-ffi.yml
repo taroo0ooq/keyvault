@@ -1,11 +1,8 @@
 # vault-ffi host + Android jniLibs — part of primary CI path
 name: vault-ffi
 
+# Auto runs only via primary CI (workflow_call).
 on:
-  push:
-    branches: [main, develop]
-  pull_request:
-    branches: [main, develop]
   workflow_dispatch:
   workflow_call:
 
