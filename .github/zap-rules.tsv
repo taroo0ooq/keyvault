@@ -1,5 +1,4 @@
-# ZAP baseline rule configuration (TAB-separated: RULE_ID<TAB>LEVEL)
-# LEVEL: FAIL | WARN | INFO | IGNORE
-10049	IGNORE
-10098	IGNORE
-90005	IGNORE
+# ZAP baseline config: RULE_ID<TAB>STATUS<TAB>COMMENT (min 3 columns)
+10049	IGNORE	Intentional Cache-Control no-store for vault API
+10098	IGNORE	Loopback-only daemon CORS for MV3 local access
+90005	IGNORE	Sec-Fetch request headers N/A for API/curl clients

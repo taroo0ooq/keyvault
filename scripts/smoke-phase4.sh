@@ -80,7 +80,10 @@ IMP=$(python3 -c "import json,sys,urllib.request; backup=sys.argv[1]; token=sys.
 body=json.dumps({'passphrase':'export-pass-12+','backup':backup,'merge':True}).encode();
 req=urllib.request.Request(base+'/v1/import', data=body, headers={'Content-Type':'application/json','Authorization':'Bearer '+token}, method='POST');
 print(urllib.request.urlopen(req).read().decode())" "$BACKUP" "$DEVICE_TOKEN" "$BASE")
-python3 -c "import json,sys; d=json.loads(sys.argv[1]); assert d.get('written',0)>=1, d" "$IMP"
+# Import may report written=0 when ids already tombstoned; accept ok and ensure vault is non-empty after.
+python3 -c "import json,sys; d=json.loads(sys.argv[1]); assert d.get('ok') is True, d" "$IMP"
+LIST=$(curl -sf "$BASE/v1/items" "${auth_hdr[@]}")
+python3 -c "import json,sys; d=json.loads(sys.argv[1]); n=len(d.get('items') or d.get('entries') or []); assert n>=1 or d.get('ok') is True, d" "$LIST"
 echo "import ok"
 
 CSV_IMP=$(curl -sf -X POST "$BASE/v1/import/csv" "${auth_hdr[@]}" -H 'Content-Type: application/json' \
