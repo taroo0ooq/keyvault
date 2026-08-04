@@ -46,22 +46,34 @@ echo "claimed device token acquired"
 
 AUTH=( -H "Authorization: Bearer $DEVICE_TOKEN" )
 
-curl -sf -X POST "$BASE/v1/unlock" "${AUTH[@]}" -H 'Content-Type: application/json' \
-  -d "{\"path\":\"$VAULT\",\"password\":\"test-master-password-32chars!!\",\"create\":true}" >/dev/null
+UNLOCK=$(curl -sS -w "\n%{http_code}" -X POST "$BASE/v1/unlock" "${AUTH[@]}" -H 'Content-Type: application/json' \
+  -d "{\"path\":\"$VAULT\",\"password\":\"test-master-password-32chars!!\",\"create\":true}")
+UNLOCK_CODE=$(echo "$UNLOCK" | tail -n1)
+UNLOCK_BODY=$(echo "$UNLOCK" | sed '$d')
+echo "unlock http=$UNLOCK_CODE body=$UNLOCK_BODY"
+test "$UNLOCK_CODE" = "200"
 
-ADD=$(curl -sf -X POST "$BASE/v1/items" "${AUTH[@]}" -H 'Content-Type: application/json' \
-  -d '{"title":"Smoke","username":"u","password":"p@ss","url":"https://example.com"}')
-ITEM_ID=$(echo "$ADD" | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])")
+ADD=$(curl -sS -w "\n%{http_code}" -X POST "$BASE/v1/items" "${AUTH[@]}" -H 'Content-Type: application/json' \
+  -d '{"title":"Smoke","username":"u","password":"pass-smoke-1","url":"https://example.com"}')
+ADD_CODE=$(echo "$ADD" | tail -n1)
+ADD_BODY=$(echo "$ADD" | sed '$d')
+echo "add http=$ADD_CODE body=$ADD_BODY"
+test "$ADD_CODE" = "200"
+ITEM_ID=$(echo "$ADD_BODY" | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])")
 
-REV=$(curl -sf -X POST "$BASE/v1/reveal" "${AUTH[@]}" -H 'Content-Type: application/json' \
+REV=$(curl -sS -w "\n%{http_code}" -X POST "$BASE/v1/reveal" "${AUTH[@]}" -H 'Content-Type: application/json' \
   -d "{\"id\":\"$ITEM_ID\",\"purpose\":\"smoke\"}")
-echo "$REV" | python3 -c "import sys,json; d=json.load(sys.stdin); assert d['password']=='p@ss'"
+REV_CODE=$(echo "$REV" | tail -n1)
+REV_BODY=$(echo "$REV" | sed '$d')
+echo "reveal http=$REV_CODE body=$REV_BODY"
+test "$REV_CODE" = "200"
+echo "$REV_BODY" | python3 -c "import sys,json; d=json.load(sys.stdin); assert d.get('password')=='pass-smoke-1', d"
 
 curl -sf -X POST "$BASE/v1/items/update" "${AUTH[@]}" -H 'Content-Type: application/json' \
-  -d "{\"id\":\"$ITEM_ID\",\"title\":\"Smoke-Updated\",\"password\":\"p@ss2\"}" >/dev/null
+  -d "{\"id\":\"$ITEM_ID\",\"title\":\"Smoke-Updated\",\"password\":\"pass-smoke-2\"}" >/dev/null
 REV2=$(curl -sf -X POST "$BASE/v1/reveal" "${AUTH[@]}" -H 'Content-Type: application/json' \
   -d "{\"id\":\"$ITEM_ID\"}")
-echo "$REV2" | python3 -c "import sys,json; d=json.load(sys.stdin); assert d['password']=='p@ss2'"
+echo "$REV2" | python3 -c "import sys,json; d=json.load(sys.stdin); assert d.get('password')=='pass-smoke-2', d"
 
 EXP=$(curl -sf -X POST "$BASE/v1/export" "${AUTH[@]}" -H 'Content-Type: application/json' \
   -d '{"passphrase":"export-pass-12+"}')

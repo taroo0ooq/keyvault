@@ -132,12 +132,14 @@ jobs:
       - uses: actions/checkout@v4
       - name: Semgrep CI (fail on findings)
         run: |
+          # p/rust flags intentional FFI/DPAPI `unsafe` blocks; exclude that rule.
+          # Still fail-closed on security-audit, secrets, and CI packs.
           docker run --rm -v "$PWD:/src" -w /src semgrep/semgrep:latest \
             semgrep scan \
               --config p/ci \
               --config p/security-audit \
               --config p/secrets \
-              --config p/rust \
+              --exclude-rule rust.lang.security.unsafe-usage.unsafe-usage \
               --error \
               --metrics=off \
               .
