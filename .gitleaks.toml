@@ -1,0 +1,19 @@
+# Gitleaks config — keep real secrets fail-closed; allow known test vectors only.
+title = "KeyVault"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "RFC 6238 / public TOTP test vectors and documented fixtures"
+paths = [
+  '''crates/vault-core/src/totp\.rs''',
+  '''apps/mobile/test/.*''',
+  '''apps/extension/tests/.*''',
+  '''scripts/smoke-phase4\.(sh|ps1)''',
+]
+regexes = [
+  '''JBSWY3DPEHPK3PXP''',
+  '''GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ''',
+  '''test-master-password-.*''',
+]

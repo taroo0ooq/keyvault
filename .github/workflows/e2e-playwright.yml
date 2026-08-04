@@ -1,11 +1,8 @@
 # Extension Playwright E2E — hardwired; fails closed (no no-op skip when package exists)
 name: E2E
 
+# Auto runs only via primary CI (workflow_call).
 on:
-  push:
-    branches: [main, develop]
-  pull_request:
-    branches: [main, develop]
   workflow_dispatch:
   workflow_call:
 

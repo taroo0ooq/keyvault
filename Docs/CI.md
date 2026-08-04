@@ -46,10 +46,13 @@ ZAP noise rules: `.github/zap-rules.tsv` (document any OUTOFSCOPE entry).
 
 ## Triggers
 
-- **Push** to `main`, `develop`
-- **Pull request** into `main`, `develop`
-- **Schedule:** SAST weekly Mon 06:00 UTC; DAST weekly Mon 07:00 UTC
-- **workflow_dispatch** on all security workflows
+| Event | What runs |
+|-------|-----------|
+| **Push / PR** to `main`, `develop` | **CI only** (`.github/workflows/ci.yml`) — single primary path |
+| **Schedule** | SAST Mon 06:00 UTC; DAST Mon 07:00 UTC (standalone) |
+| **workflow_dispatch** | Any modular workflow (SAST/DAST/Gates/E2E/FFI) for focused re-runs |
+
+Modular workflows (`sast-scan`, `dast-scan`, `phase5-gates`, `e2e-playwright`, `vault-ffi`) are **not** auto-triggered on push/PR by themselves — they are **`workflow_call`ed by CI** so the Actions queue is not flooded.
 
 ## Dependabot
 

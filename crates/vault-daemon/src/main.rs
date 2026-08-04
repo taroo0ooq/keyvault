@@ -1673,6 +1673,7 @@ fn read_body(request: &mut Request) -> String {
 
 fn cors_preflight() -> Response<std::io::Cursor<Vec<u8>>> {
     let mut response = Response::from_string("").with_status_code(StatusCode(204));
+    add_security_headers(&mut response);
     add_cors(&mut response);
     response
 }
@@ -1682,18 +1683,41 @@ fn json_response(status: StatusCode, body: String) -> Response<std::io::Cursor<V
     if let Ok(h) = Header::from_bytes(&b"Content-Type"[..], &b"application/json"[..]) {
         response.add_header(h);
     }
-    if let Ok(h) = Header::from_bytes(&b"Cache-Control"[..], &b"no-store"[..]) {
+    add_security_headers(&mut response);
+    add_cors(&mut response);
+    response
+}
+
+fn add_security_headers(response: &mut Response<std::io::Cursor<Vec<u8>>>) {
+    // Sensitive vault API — never cache; reduce MIME sniffing / framing risk.
+    if let Ok(h) =
+        Header::from_bytes(&b"Cache-Control"[..], &b"no-store, no-cache, must-revalidate"[..])
+    {
+        response.add_header(h);
+    }
+    if let Ok(h) = Header::from_bytes(&b"Pragma"[..], &b"no-cache"[..]) {
         response.add_header(h);
     }
     if let Ok(h) = Header::from_bytes(&b"X-Content-Type-Options"[..], &b"nosniff"[..]) {
         response.add_header(h);
     }
-    add_cors(&mut response);
-    response
+    if let Ok(h) = Header::from_bytes(&b"X-Frame-Options"[..], &b"DENY"[..]) {
+        response.add_header(h);
+    }
+    if let Ok(h) = Header::from_bytes(&b"Referrer-Policy"[..], &b"no-referrer"[..]) {
+        response.add_header(h);
+    }
+    if let Ok(h) = Header::from_bytes(
+        &b"Content-Security-Policy"[..],
+        &b"default-src 'none'; frame-ancestors 'none'; base-uri 'none'"[..],
+    ) {
+        response.add_header(h);
+    }
 }
 
 fn add_cors(response: &mut Response<std::io::Cursor<Vec<u8>>>) {
-    // Daemon is loopback-only; CORS enables MV3 extension fetch from any page.
+    // Daemon is loopback-only. ACAO * enables MV3 extension + local tools without
+    // credentials; bind address is the trust boundary (see COMPLIANCE C-05).
     if let Ok(h) = Header::from_bytes(&b"Access-Control-Allow-Origin"[..], &b"*"[..]) {
         response.add_header(h);
     }
@@ -1705,7 +1729,7 @@ fn add_cors(response: &mut Response<std::io::Cursor<Vec<u8>>>) {
     }
     if let Ok(h) = Header::from_bytes(
         &b"Access-Control-Allow-Headers"[..],
-        &b"Content-Type"[..],
+        &b"Content-Type, Authorization"[..],
     ) {
         response.add_header(h);
     }

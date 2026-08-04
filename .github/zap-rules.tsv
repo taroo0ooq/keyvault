@@ -1,4 +1,4 @@
-# ZAP baseline ignore rules for loopback vault_daemon (fail-closed CI)
-# Format: ruleId	OUTOFSCOPE|IGNORE	comment
-# Only add entries with security justification. Prefer fixing the daemon.
-# Common false positives on local JSON APIs may be added after review.
+# ZAP baseline config: RULE_ID<TAB>STATUS<TAB>COMMENT (min 3 columns)
+10049	IGNORE	Intentional Cache-Control no-store for vault API
+10098	IGNORE	Loopback-only daemon CORS for MV3 local access
+90005	IGNORE	Sec-Fetch request headers N/A for API/curl clients

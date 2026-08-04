@@ -1,0 +1,13 @@
+# Semgrep exclusions — keep product code scanned; skip third-party / generated noise
+node_modules/
+target/
+**/target/
+dist/
+build/
+.dart_tool/
+apps/desktop/node_modules/
+apps/extension/node_modules/
+apps/mobile/ios/
+apps/mobile/android/
+# GitHub Actions marketplace pins are reviewed in PR; generic rules flag many
+.github/workflows/
