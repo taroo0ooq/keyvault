@@ -1,0 +1,48 @@
+# Rust
+/target
+**/target
+**/*.rs.bk
+# Keep workspace Cargo.lock for reproducible CI builds
+
+# IDE / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Secrets & local vault data (never commit)
+*.vault
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+.env
+.env.*
+!.env.example
+secrets/
+*.pem
+*.key
+*.p12
+
+# Node / Flutter / Tauri (future phases)
+node_modules/
+dist/
+build/
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+apps/desktop/src-tauri/target/
+
+# Test / coverage / security reports
+coverage/
+lcov.info
+*.lcov
+playwright-report/
+test-results/
+zap-report/
+.cargo-audit/
+
+# Handover artifacts that may contain local hashes only — keep YAML, ignore dumps
+.handover/*.log
+.handover/tmp/

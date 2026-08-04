@@ -1,0 +1,88 @@
+name: DAST Tunnel Scan
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  zap-baseline:
+    name: OWASP ZAP baseline vs vault_daemon
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build vault_daemon
+        run: cargo build -p vault-daemon --release
+
+      - name: Start vault_daemon on 127.0.0.1:8080
+        run: |
+          ./target/release/vault_daemon &
+          echo $! > /tmp/vault_daemon.pid
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:8080/health >/dev/null; then
+              echo "daemon healthy"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "daemon failed to become healthy"
+          exit 1
+
+      - name: OWASP ZAP baseline scan
+        uses: zaproxy/action-baseline@v0.12.0
+        with:
+          target: "http://127.0.0.1:8080/health"
+          cmd_options: "-a"
+          allow_issue_writing: true
+          fail_action: true
+          artifact_name: zap-baseline-report
+
+      - name: Stop daemon
+        if: always()
+        run: |
+          if [ -f /tmp/vault_daemon.pid ]; then
+            kill "$(cat /tmp/vault_daemon.pid)" || true
+          fi
+
+      - name: Open GitHub Issue on ZAP findings
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = `[DAST] ZAP baseline findings — ${context.sha.substring(0, 7)}`;
+            const body = [
+              '## DAST failure',
+              '',
+              `| Field | Value |`,
+              `| --- | --- |`,
+              `| Workflow | \`${context.workflow}\` |`,
+              `| Run ID | [\`${context.runId}\`](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}) |`,
+              `| Commit | \`${context.sha}\` |`,
+              `| Branch | \`${context.ref}\` |`,
+              `| Actor | @${context.actor} |`,
+              '',
+              '### Next steps',
+              '1. Download the `zap-baseline-report` artifact from the failed run.',
+              '2. Reproduce locally: `cargo run -p vault-daemon` then scan `http://127.0.0.1:8080/health`.',
+              '3. Remediate findings; ensure daemon remains loopback-only.',
+              '4. Re-run this workflow on the PR.',
+              '',
+              '_Auto-created by `.github/workflows/dast-scan.yml`._',
+            ].join('\n');
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title,
+              body,
+              labels: ['security', 'dast', 'automated'],
+            });

@@ -1,0 +1,99 @@
+name: Playwright E2E & Automated Bug Logger
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  playwright:
+    name: Extension / desktop Playwright suite
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Detect extension package
+        id: ext
+        run: |
+          if [ -f apps/extension/package.json ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install & build extension
+        if: steps.ext.outputs.present == 'true'
+        working-directory: apps/extension
+        run: |
+          npm ci
+          npm run build
+
+      - name: Install Playwright
+        if: steps.ext.outputs.present == 'true'
+        working-directory: apps/extension
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Playwright tests
+        if: steps.ext.outputs.present == 'true'
+        working-directory: apps/extension
+        run: npx playwright test
+        id: playwright
+
+      - name: Upload Playwright report
+        if: always() && steps.ext.outputs.present == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: apps/extension/playwright-report/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Phase-1 placeholder (no extension yet)
+        if: steps.ext.outputs.present != 'true'
+        run: |
+          echo "apps/extension not present (expected until Phase 3)."
+          echo "Workflow gate is green with no-op until extension package lands."
+
+      - name: Open GitHub Issue on Playwright failure
+        if: failure() && steps.ext.outputs.present == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const templatePath = '.github/templates/bug_report_template.md';
+            let template = fs.existsSync(templatePath)
+              ? fs.readFileSync(templatePath, 'utf8')
+              : '## Automated bug report\n';
+
+            const filled = template
+              .replaceAll('{{RUN_ID}}', String(context.runId))
+              .replaceAll('{{COMMIT_SHA}}', context.sha)
+              .replaceAll('{{BRANCH}}', context.ref)
+              .replaceAll('{{WORKFLOW}}', context.workflow)
+              .replaceAll('{{ACTOR}}', context.actor)
+              .replaceAll(
+                '{{RUN_URL}}',
+                `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
+              );
+
+            const title = `[E2E] Playwright failure — ${context.sha.substring(0, 7)}`;
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title,
+              body: filled,
+              labels: ['bug', 'e2e', 'automated', 'playwright'],
+            });
