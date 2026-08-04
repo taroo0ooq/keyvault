@@ -13,6 +13,7 @@ Thumbs.db
 
 # Secrets & local vault data (never commit)
 *.vault
+*.enclave.json
 *.db
 *.db-journal
 *.db-wal
@@ -28,11 +29,16 @@ secrets/
 # Node / Flutter / Tauri (future phases)
 node_modules/
 dist/
+apps/extension/dist/
+apps/extension/playwright-report/
+apps/extension/test-results/
 build/
 .dart_tool/
 .flutter-plugins
 .flutter-plugins-dependencies
 apps/desktop/src-tauri/target/
+apps/mobile/android/app/src/main/jniLibs/**/*.so
+apps/mobile/windows/runner/vault_ffi.dll
 
 # Test / coverage / security reports
 coverage/

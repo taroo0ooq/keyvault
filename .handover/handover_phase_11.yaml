@@ -1,0 +1,37 @@
+version: "1.0"
+phase:
+  number: 11
+  name: "Pure-Dart TOTP mock + extension TOTP copy"
+  completion_date: "2026-08-05"
+  status: "Completed (engineering)"
+  notes: >
+    Mock mobile vault now generates real RFC 6238 codes via TotpDart (crypto package).
+    Extension popup lists 2FA badge and Copy TOTP via POST /v1/totp (loopback or
+    native host cmd totp). Miro MCP still rate-limited for live board apply.
+features_implemented:
+  - id: "FEAT-110"
+    title: "Pure-Dart TOTP for mock backend"
+    description: "apps/mobile/lib/services/totp_dart.dart; unit tests RFC vector 94287082"
+    status: "Verified"
+  - id: "FEAT-111"
+    title: "Extension TOTP copy"
+    description: "daemon.totpCode; popup 2FA badge + Copy TOTP; native host totp cmd"
+    status: "Verified"
+known_issues:
+  - id: "KI-001"
+    severity: "medium"
+    description: "SQLCipher native still not linked"
+  - id: "KI-062"
+    severity: "low"
+    description: "Miro MCP Free plan daily limit blocks live board resync"
+artifacts:
+  - path: "apps/mobile/lib/services/totp_dart.dart"
+  - path: "apps/mobile/test/totp_dart_test.dart"
+  - path: "apps/extension/src/popup.ts"
+  - path: "apps/extension/src/daemon.ts"
+miro_board:
+  name: "PasswordManager"
+  url: "https://miro.com/app/board/uXjVH1LjUrs=/"
+  note: "Seed updated; live resync blocked by MCP quota"
+handover_approved_by: ""
+approval_status: "Pending stakeholder sign-off"

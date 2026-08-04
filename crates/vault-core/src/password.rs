@@ -286,22 +286,32 @@ mod tests {
 
     #[test]
     fn generate_respects_length_bounds() {
-        let mut policy = PasswordPolicy::default();
-        policy.length = 8;
+        let policy = PasswordPolicy {
+            length: 8,
+            ..PasswordPolicy::default()
+        };
         let p = generate_password(&policy).unwrap();
         assert_eq!(p.len(), 8);
 
-        policy.length = 128;
+        let policy = PasswordPolicy {
+            length: 128,
+            ..PasswordPolicy::default()
+        };
         let p = generate_password(&policy).unwrap();
         assert_eq!(p.len(), 128);
     }
 
     #[test]
     fn reject_too_short_or_long() {
-        let mut policy = PasswordPolicy::default();
-        policy.length = 7;
+        let policy = PasswordPolicy {
+            length: 7,
+            ..PasswordPolicy::default()
+        };
         assert!(generate_password(&policy).is_err());
-        policy.length = 129;
+        let policy = PasswordPolicy {
+            length: 129,
+            ..PasswordPolicy::default()
+        };
         assert!(generate_password(&policy).is_err());
     }
 

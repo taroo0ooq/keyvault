@@ -1,0 +1,58 @@
+version: "1.0"
+phase:
+  number: 8
+  name: "Change master password & CSV import"
+  completion_date: "2026-08-05"
+  status: "Completed (engineering)"
+  notes: >
+    Master password rotation re-encrypts all vault items under a new Argon2id MK
+    inside a single SQLite transaction. Chrome/Bitwarden-style CSV import lands
+    items with an "imported" tag. Desktop Security dialog + daemon APIs exposed.
+features_implemented:
+  - id: "FEAT-080"
+    title: "Change master password"
+    description: >
+      Vault::change_master_password; transactional re-encrypt; POST /v1/change-password;
+      desktop Security dialog. Enclave sidecar must be re-enrolled after change.
+    status: "Verified"
+    evidence:
+      - "crates/vault-core/src/vault_db.rs"
+      - "crates/vault-daemon/src/main.rs"
+      - "apps/desktop/index.html"
+  - id: "FEAT-081"
+    title: "CSV import"
+    description: >
+      Vault::import_csv (Chrome/Bitwarden/generic headers); POST /v1/import/csv;
+      desktop Security dialog textarea.
+    status: "Verified"
+    evidence:
+      - "crates/vault-core/src/vault_db.rs parse_csv"
+      - "scripts/smoke-phase4.ps1"
+security_verification:
+  sast_scans:
+    tool: "cargo test vault-core"
+    status: "PASSED (local)"
+    notes: "50 unit tests including change_master_password_reencrypts + import_csv_chrome_style"
+automated_tests:
+  unit_tests:
+    vault_core: { total: 50 }
+  smoke:
+    phase4: "csv import + change-password steps"
+known_issues:
+  - id: "KI-080"
+    severity: "low"
+    description: "After password change, OS enclave quick-unlock blob is stale"
+    mitigation: "UI notes re-enroll; auto-delete sidecar can be added later"
+  - id: "KI-001"
+    severity: "medium"
+    description: "SQLCipher native still not linked"
+artifacts:
+  - path: "crates/vault-core/src/vault_db.rs"
+  - path: "crates/vault-daemon/src/main.rs"
+  - path: "apps/desktop/src/main.js"
+miro_board:
+  name: "PasswordManager"
+  url: "https://miro.com/app/board/uXjVH1LjUrs=/"
+  note: "MCP quota may block live board; seed updated offline"
+handover_approved_by: ""
+approval_status: "Pending stakeholder sign-off"

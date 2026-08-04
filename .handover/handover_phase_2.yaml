@@ -1,0 +1,89 @@
+version: "1.0"
+phase:
+  number: 2
+  name: "Desktop & Mobile UI"
+  completion_date: "2026-08-04"
+  status: "In Progress"
+  notes: >
+    Desktop Tauri shell verified with vault-core crypto, auto-lock, clipboard
+    clear, PIN, and OS-enclave quick unlock. Mobile Flutter has dart:ffi +
+    local_auth biometric gate before enclave unlock. CI workflow vault-ffi.yml
+    builds host lib, Android jniLibs (cargo-ndk + NDK r27c), and runs Flutter
+    analyze/test. Remaining for full approval: confirm Android CI green on
+    first push; Windows Hello UI for desktop enclave unlock; iOS dylib.
+features_implemented:
+  - id: "FEAT-010"
+    title: "Tauri v2 desktop shell"
+    description: >
+      Create/unlock/lock vault, CRUD, search, generator, entropy scoring,
+      auto-lock (default 5m), copy_secret with 30s clipboard clear,
+      password or PIN≥8, OS-enclave enroll + quick unlock.
+    status: "Verified"
+    evidence:
+      - "apps/desktop/"
+      - "target/release/keyvault-desktop.exe ~3.7 MB"
+  - id: "FEAT-020"
+    title: "Flutter mobile + vault_ffi"
+    description: >
+      Auth + vault UI; VaultService prefers vault_ffi C ABI; mock fallback;
+      enclave quick unlock; BiometricGate (local_auth); Android jniLibs + CI.
+    status: "Near complete"
+    evidence:
+      - "apps/mobile/"
+      - "crates/vault-ffi/"
+      - ".github/workflows/vault-ffi.yml"
+  - id: "FEAT-021"
+    title: "OS enclave MK wrap for quick unlock"
+    description: >
+      Vault::wrap_master_key_for_enclave / unlock_with_enclave_blob;
+      sidecar {vault}.enclave.json; OsEnclaveStore for AccountKey;
+      DPAPI on Windows, software-dev elsewhere; mobile biometric gate.
+    status: "Verified"
+  - id: "FEAT-022"
+    title: "vault-ffi CI (host + Android jniLibs)"
+    description: "GitHub Actions build/test + cargo-ndk multi-ABI artifacts"
+    status: "Configured"
+security_verification:
+  sast_scans:
+    tool: "cargo test vault-core + vault-ffi; flutter analyze; vault-ffi.yml"
+    status: "PASSED (local); CI configured"
+    vulnerabilities_found: 0
+  dast_scans:
+    tool: "unchanged from Phase 1 workflows"
+    status: "CONFIGURED"
+automated_tests:
+  unit_tests:
+    vault_core: { total: 35, notes: "includes enclave wrap + OsEnclaveStore" }
+    vault_ffi: { total: 2, passed: 2 }
+  flutter:
+    analyze: "clean"
+    widget_tests: "pass (mock backend when dylib absent)"
+known_issues:
+  - id: "KI-010"
+    severity: "low"
+    description: "Android jniLibs produced in CI artifacts; not committed to git"
+    mitigation: ".github/workflows/vault-ffi.yml uploads jniLibs; download before mobile release"
+  - id: "KI-011"
+    severity: "low"
+    description: "Desktop quick unlock has no Windows Hello UI prompt yet"
+    mitigation: "Mobile uses local_auth; desktop relies on DPAPI user-session binding"
+  - id: "KI-001"
+    severity: "medium"
+    description: "Native SQLCipher C library still not linked (field-level AEAD interim)"
+    mitigation: "Carry forward from Phase 1"
+artifacts:
+  - path: "apps/desktop/src-tauri/src/lib.rs"
+  - path: "crates/vault-ffi/src/lib.rs"
+  - path: "crates/vault-core/src/vault_db.rs"
+  - path: "crates/vault-core/src/secure_key.rs"
+  - path: "scripts/build-vault-ffi.ps1"
+  - path: "scripts/build-vault-ffi-android.sh"
+  - path: ".github/workflows/vault-ffi.yml"
+  - path: "apps/mobile/lib/services/vault_ffi.dart"
+  - path: "apps/mobile/lib/services/biometric_gate.dart"
+miro_board:
+  name: "PasswordManager"
+  url: "https://miro.com/app/board/uXjVH1LjUrs=/"
+  board_id: "uXjVH1LjUrs="
+handover_approved_by: ""
+approval_status: "Pending — desktop verified; mobile biometric gate done; Android CI configured"

@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>KeyVault</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <header>
+      <strong>KeyVault</strong>
+      <span id="badge" class="badge">…</span>
+    </header>
+    <section id="status-block">
+      <p id="status-line" class="muted">Checking local daemon…</p>
+      <p id="auth-line" class="muted small"></p>
+      <label class="small">
+        Bearer token (when tunnel/auth required)
+        <input id="bearer" type="password" placeholder="operator or device token" />
+      </label>
+    </section>
+    <section id="unlock-block" class="hidden">
+      <label>
+        Vault path
+        <input id="path" type="text" spellcheck="false" />
+      </label>
+      <label>
+        Master password
+        <input id="password" type="password" />
+      </label>
+      <div class="row">
+        <button id="btn-unlock" type="button" class="primary">Unlock</button>
+        <button id="btn-create" type="button">Create</button>
+      </div>
+      <p id="unlock-error" class="error"></p>
+    </section>
+    <section id="vault-block" class="hidden">
+      <input id="search" type="search" placeholder="Search…" />
+      <ul id="items"></ul>
+      <div class="row">
+        <button id="btn-gen" type="button">Generate</button>
+        <button id="btn-lock" type="button" class="danger">Lock</button>
+      </div>
+      <p id="gen-out" class="mono muted"></p>
+    </section>
+    <footer class="muted small">Loopback only · 127.0.0.1:8080</footer>
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>

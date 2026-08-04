@@ -1,0 +1,66 @@
+version: "1.0"
+phase:
+  number: 4
+  name: "Secure Tunneling & Pairing"
+  completion_date: "2026-08-05"
+  status: "In Progress"
+  notes: >
+    Tunnel agent and QR pairing landed in vault-core + vault_daemon.
+    Tunnels are external processes (cloudflared/ngrok) forwarding to 127.0.0.1 only.
+    Pairing offers HMAC tokens + QR JSON; claim issues device API tokens.
+    Full mTLS cert generation and remote auth middleware still pending.
+features_implemented:
+  - id: "FEAT-040"
+    title: "Tunnel agent (cloudflared / ngrok)"
+    description: "TunnelAgent spawn/stop/status; always targets 127.0.0.1; binary optional"
+    status: "Partial"
+    evidence:
+      - "crates/vault-core/src/tunnel.rs"
+      - "POST /v1/tunnel/start|stop GET /v1/tunnel/status"
+  - id: "FEAT-041"
+    title: "QR pairing offer + claim"
+    description: "PairingSecret HMAC tokens; create/claim/list devices APIs"
+    status: "Verified"
+    evidence:
+      - "crates/vault-core/src/pairing.rs"
+      - "POST /v1/pairing/create|claim GET /v1/pairing/devices"
+  - id: "FEAT-042"
+    title: "Bearer auth when tunnel active"
+    description: "Vault routes require Authorization: Bearer; operator token + device hash store"
+    status: "Verified"
+    evidence:
+      - "crates/vault-daemon/src/main.rs check_bearer"
+      - "GET /v1/auth/mode"
+  - id: "FEAT-043"
+    title: "Tunnel public URL log scrape"
+    description: "Parse trycloudflare/ngrok HTTPS URLs from process output"
+    status: "Verified"
+    evidence:
+      - "crates/vault-core/src/tunnel.rs parse_public_url_from_line"
+  - id: "FEAT-044"
+    title: "Desktop Remote panel"
+    description: "Tauri dialog for tunnel start/stop and QR pairing via daemon HTTP"
+    status: "Verified"
+    evidence:
+      - "apps/desktop Remote dialog"
+      - "scripts/smoke-phase4.ps1"
+known_issues:
+  - id: "KI-040"
+    severity: "low"
+    description: "Public tunnel URL scraped from cloudflared/ngrok stdout/stderr"
+    mitigation: "parse_public_url_from_line; manual public_url override still supported"
+    status: "Mitigated"
+  - id: "KI-041"
+    severity: "low"
+    description: "Bearer enforced when tunnel running or VAULT_DAEMON_REQUIRE_AUTH=1"
+    mitigation: "Implemented — operator token at startup + paired device token hashes"
+    status: "Mitigated"
+  - id: "KI-042"
+    severity: "low"
+    description: "mTLS client certs not generated yet"
+    mitigation: "Token handshake first; mTLS in follow-up"
+miro_board:
+  name: "PasswordManager"
+  url: "https://miro.com/app/board/uXjVH1LjUrs=/"
+handover_approved_by: ""
+approval_status: "Pending — core Phase 4 complete; mTLS optional follow-up"

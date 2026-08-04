@@ -1,0 +1,54 @@
+#keyvault-autofill-overlay {
+  position: absolute;
+  z-index: 2147483646;
+  min-width: 240px;
+  max-width: 320px;
+  background: #0f172a;
+  color: #e2e8f0;
+  border: 1px solid #334155;
+  border-radius: 10px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+  font: 13px/1.4 system-ui, -apple-system, Segoe UI, sans-serif;
+  padding: 0.6rem;
+}
+
+#keyvault-autofill-overlay .kv-title {
+  font-weight: 600;
+  margin-bottom: 0.4rem;
+  color: #93c5fd;
+}
+
+#keyvault-autofill-overlay .kv-hint {
+  margin: 0.25rem 0 0.5rem;
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+#keyvault-autofill-overlay .kv-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: #1e293b;
+  color: #f1f5f9;
+  border: 1px solid #334155;
+  border-radius: 6px;
+  padding: 0.45rem 0.55rem;
+  margin: 0.25rem 0;
+  cursor: pointer;
+}
+
+#keyvault-autofill-overlay .kv-item:hover {
+  border-color: #3b82f6;
+  background: #1e3a5f;
+}
+
+#keyvault-autofill-overlay .kv-close {
+  margin-top: 0.35rem;
+  width: 100%;
+  background: transparent;
+  border: 1px solid #475569;
+  color: #cbd5e1;
+  border-radius: 6px;
+  padding: 0.35rem;
+  cursor: pointer;
+}

@@ -1,0 +1,4 @@
+# ZAP baseline ignore rules for loopback vault_daemon (fail-closed CI)
+# Format: ruleId	OUTOFSCOPE|IGNORE	comment
+# Only add entries with security justification. Prefer fixing the daemon.
+# Common false positives on local JSON APIs may be added after review.

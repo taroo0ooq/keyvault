@@ -1,0 +1,39 @@
+version: "1.0"
+phase:
+  number: 13
+  name: "Soft-delete trash + HIBP k-anonymity"
+  completion_date: "2026-08-05"
+  status: "Completed (engineering)"
+  notes: >
+    Schema v3 adds deleted_at for soft-delete trash with restore/purge/empty.
+    Password change and encrypted backup re-encrypt trash items. HIBP range API
+    (k-anonymity) available as optional network check on daemon. Miro still
+    rate-limited for live board apply.
+features_implemented:
+  - id: "FEAT-130"
+    title: "Soft-delete trash"
+    description: >
+      delete_item soft-deletes; restore_item, purge_item, empty_trash, list_trash;
+      daemon + desktop Trash dialog; migration for deleted_at
+    status: "Verified"
+  - id: "FEAT-131"
+    title: "HIBP k-anonymity pwned check"
+    description: "POST /v1/health/pwned {id} — SHA-1 prefix only to api.pwnedpasswords.com"
+    status: "Verified"
+    notes: "Requires network; not run in default smoke"
+known_issues:
+  - id: "KI-001"
+    severity: "medium"
+    description: "SQLCipher native still not linked"
+  - id: "KI-062"
+    severity: "low"
+    description: "Miro MCP Free plan daily limit"
+artifacts:
+  - path: "crates/vault-core/src/vault_db.rs"
+  - path: "crates/vault-daemon/src/main.rs"
+  - path: "apps/desktop/index.html"
+miro_board:
+  name: "PasswordManager"
+  url: "https://miro.com/app/board/uXjVH1LjUrs=/"
+handover_approved_by: ""
+approval_status: "Pending stakeholder sign-off"

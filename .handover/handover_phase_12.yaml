@@ -1,0 +1,42 @@
+version: "1.0"
+phase:
+  number: 12
+  name: "CSV export + offline password health"
+  completion_date: "2026-08-05"
+  status: "Completed (engineering)"
+  notes: >
+    Chrome-compatible CSV export (with totp column) and offline password health
+    scan (weak entropy/length + exact reuse). No network/HIBP. Exposed on daemon
+    and desktop Security dialog. Miro still rate-limited for live apply.
+features_implemented:
+  - id: "FEAT-120"
+    title: "CSV export"
+    description: "Vault::export_csv; GET /v1/export/csv; desktop Export CSV"
+    status: "Verified"
+  - id: "FEAT-121"
+    title: "Offline password health"
+    description: "Vault::password_health; GET /v1/health/passwords; desktop Password health"
+    status: "Verified"
+security_verification:
+  notes: "Health scan is local only; CSV export is secret-bearing and Bearer-protected"
+automated_tests:
+  unit_tests:
+    vault_core: { total: 57 }
+  smoke:
+    phase4: "export csv + password health"
+known_issues:
+  - id: "KI-001"
+    severity: "medium"
+    description: "SQLCipher native still not linked"
+  - id: "KI-062"
+    severity: "low"
+    description: "Miro MCP Free plan daily limit"
+artifacts:
+  - path: "crates/vault-core/src/vault_db.rs"
+  - path: "crates/vault-daemon/src/main.rs"
+  - path: "apps/desktop/src/main.js"
+miro_board:
+  name: "PasswordManager"
+  url: "https://miro.com/app/board/uXjVH1LjUrs=/"
+handover_approved_by: ""
+approval_status: "Pending stakeholder sign-off"

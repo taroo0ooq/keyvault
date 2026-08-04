@@ -1,0 +1,58 @@
+version: "1.0"
+phase:
+  number: 7
+  name: "Post-hardening features — CRUD API & portable backup"
+  completion_date: "2026-08-05"
+  status: "Completed (engineering)"
+  notes: >
+    After Phase 6 footprint/compliance, filled remaining product gaps:
+    daemon full item update/delete, encrypted portable backup (core + daemon +
+    desktop UI), native-host command surface, smoke tests extended.
+features_implemented:
+  - id: "FEAT-070"
+    title: "Daemon item update & delete"
+    description: "POST /v1/items/update and /v1/items/delete; notes/tags on create; Bearer-protected"
+    status: "Verified"
+    evidence:
+      - "crates/vault-daemon/src/main.rs"
+      - "scripts/smoke-phase4.ps1"
+      - "scripts/smoke-phase4.sh"
+  - id: "FEAT-071"
+    title: "Encrypted portable backup"
+    description: >
+      Vault::export_encrypted_backup / import_encrypted_backup (Argon2id + AEAD,
+      base64 envelope keyvault-backup-v1); daemon /v1/export|/v1/import; desktop Backup dialog
+    status: "Verified"
+    evidence:
+      - "crates/vault-core/src/vault_db.rs"
+      - "apps/desktop/src-tauri/src/lib.rs"
+      - "apps/desktop/index.html"
+security_verification:
+  sast_scans:
+    tool: "cargo test vault-core (+ backup roundtrip)"
+    status: "PASSED (local)"
+  notes: "Export uses separate passphrase (min 12); wrong passphrase fails decrypt"
+automated_tests:
+  unit_tests:
+    vault_core: { total: 48, notes: "includes encrypted_backup_roundtrip" }
+  smoke:
+    phase4: "extended for update/export/delete/import"
+known_issues:
+  - id: "KI-001"
+    severity: "medium"
+    description: "SQLCipher native still not linked"
+  - id: "KI-070"
+    severity: "low"
+    description: "Backup blob may be large for huge vaults; no streaming yet"
+    mitigation: "Acceptable for v0.1 personal vaults"
+artifacts:
+  - path: "crates/vault-core/src/vault_db.rs"
+  - path: "crates/vault-daemon/src/main.rs"
+  - path: "apps/desktop/src/main.js"
+  - path: "crates/vault-native-host/src/main.rs"
+miro_board:
+  name: "PasswordManager"
+  url: "https://miro.com/app/board/uXjVH1LjUrs=/"
+  note: "Live resync blocked by MCP quota; seed updated"
+handover_approved_by: ""
+approval_status: "Pending stakeholder sign-off"

@@ -44,6 +44,12 @@ pub enum VaultError {
     #[error("invalid input: {0}")]
     InvalidInput(String),
 
+    #[error("tunnel error: {0}")]
+    Tunnel(String),
+
+    #[error("pairing error: {0}")]
+    Pairing(String),
+
     #[error("I/O error: {0}")]
     Io(#[from] std::io::Error),
 }

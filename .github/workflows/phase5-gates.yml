@@ -1,0 +1,120 @@
+# Product gates — tests, footprint, smoke, curl posture
+name: Gates
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: gates-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  rust-core:
+    name: Rust clippy + tests + footprint + smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - name: Clippy (Rust crates — exclude Tauri desktop host)
+        run: |
+          cargo clippy -p vault-core -p vault-daemon -p vault-ffi -p vault-native-host \
+            --all-targets -- -D warnings
+
+      - name: Unit / integration tests
+        run: |
+          cargo test -p vault-core
+          cargo test -p vault-ffi
+          cargo test -p vault-daemon
+          cargo test -p vault-native-host
+
+      - name: Release build daemon + native host + ffi
+        run: cargo build -p vault-daemon -p vault-native-host -p vault-ffi --release
+
+      - name: Footprint gate (binaries under 15 MB)
+        run: |
+          chmod +x scripts/measure-footprint.sh
+          ./scripts/measure-footprint.sh
+          python3 - <<'PY'
+          import json, sys
+          with open("Docs/footprint-report.json") as f:
+              r = json.load(f)
+          failed = []
+          for t in r.get("targets", []):
+              if not t.get("present"):
+                  continue
+              if t.get("under_limit") is False:
+                  failed.append(f"{t['name']}={t.get('megabytes')}MB")
+          daemon = next((t for t in r["targets"] if t["name"] == "vault_daemon" and t.get("present")), None)
+          if not daemon or not daemon.get("under_limit", False):
+              failed.append("vault_daemon missing or over limit")
+          if failed:
+              print("FOOTPRINT FAIL:", ", ".join(failed))
+              sys.exit(1)
+          print("Footprint OK:", [(t["name"], t.get("megabytes")) for t in r["targets"] if t.get("present")])
+          PY
+
+      - name: Phase 4 smoke (pairing + Bearer)
+        run: |
+          chmod +x scripts/smoke-phase4.sh
+          ./scripts/smoke-phase4.sh
+
+  flutter-check:
+    name: Flutter analyze + test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - working-directory: apps/mobile
+        run: |
+          flutter pub get
+          flutter analyze --fatal-infos
+          flutter test
+
+  dast-curl-smoke:
+    name: Daemon endpoint smoke (loopback)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo build -p vault-daemon --release
+      - name: Start daemon and probe endpoints
+        run: |
+          set -euo pipefail
+          ./target/release/vault_daemon &
+          echo $! > /tmp/vd.pid
+          for i in $(seq 1 30); do
+            curl -sf http://127.0.0.1:8080/health && break
+            sleep 1
+          done
+          curl -sf http://127.0.0.1:8080/health | tee /tmp/health.json
+          curl -sf http://127.0.0.1:8080/v1/status | tee /tmp/status.json
+          curl -sf http://127.0.0.1:8080/v1/auth/mode | tee /tmp/auth.json
+          curl -sf http://127.0.0.1:8080/v1/tunnel/status | tee /tmp/tunnel.json
+          code=$(curl -s -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:8080/v1/reveal \
+            -H 'Content-Type: application/json' -d '{}' || true)
+          test "$code" = "400" -o "$code" = "401" -o "$code" = "422"
+          python3 - <<'PY'
+          import json
+          h=json.load(open("/tmp/health.json"))
+          assert h.get("ok") is True
+          a=json.load(open("/tmp/auth.json"))
+          assert "auth_required" in a
+          print("dast-curl-smoke OK")
+          PY
+          kill "$(cat /tmp/vd.pid)" || true

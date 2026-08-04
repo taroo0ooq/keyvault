@@ -1,0 +1,113 @@
+# =============================================================================
+# PRIMARY CI PATH — required merge gate for KeyVault
+# =============================================================================
+# All development must pass this workflow. Branch protection should require:
+#   "CI / required-gate"
+#
+# Hardwired security:
+#   SAST  — TruffleHog, Gitleaks, CodeQL, cargo-audit, cargo-deny, clippy,
+#           Semgrep, npm audit, Flutter analyze
+#   DAST  — OWASP ZAP baseline (fail_action) + loopback probes
+#   Gates — footprint, smoke-phase4, unit tests
+#   E2E   — Playwright extension
+#   FFI   — host + Android vault-ffi
+# =============================================================================
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: ci-primary-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  sast:
+    name: SAST (all scanners)
+    uses: ./.github/workflows/sast-scan.yml
+    secrets: inherit
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+      pull-requests: read
+
+  dast:
+    name: DAST (ZAP + probes)
+    uses: ./.github/workflows/dast-scan.yml
+    secrets: inherit
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+      security-events: write
+
+  gates:
+    name: Product gates
+    uses: ./.github/workflows/phase5-gates.yml
+    secrets: inherit
+    permissions:
+      contents: read
+      issues: write
+
+  e2e:
+    name: E2E Playwright
+    uses: ./.github/workflows/e2e-playwright.yml
+    secrets: inherit
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+
+  vault-ffi:
+    name: vault-ffi host + Android
+    uses: ./.github/workflows/vault-ffi.yml
+    secrets: inherit
+    permissions:
+      contents: read
+
+  # Single required status check for branch protection
+  required-gate:
+    name: required-gate
+    runs-on: ubuntu-latest
+    needs: [sast, dast, gates, e2e, vault-ffi]
+    if: always()
+    steps:
+      - name: Enforce all primary CI jobs green
+        run: |
+          set -euo pipefail
+          echo "SAST:       ${{ needs.sast.result }}"
+          echo "DAST:       ${{ needs.dast.result }}"
+          echo "Gates:      ${{ needs.gates.result }}"
+          echo "E2E:        ${{ needs.e2e.result }}"
+          echo "vault-ffi:  ${{ needs.vault-ffi.result }}"
+
+          fail=0
+          for r in \
+            "${{ needs.sast.result }}" \
+            "${{ needs.dast.result }}" \
+            "${{ needs.gates.result }}" \
+            "${{ needs.e2e.result }}" \
+            "${{ needs.vault-ffi.result }}"
+          do
+            if [ "$r" != "success" ]; then
+              fail=1
+            fi
+          done
+
+          if [ "$fail" -ne 0 ]; then
+            echo "::error::Primary CI path failed. Fix SAST/DAST/Gates/E2E/FFI before merge."
+            exit 1
+          fi
+          echo "Primary CI path green — safe to merge (pending review)."

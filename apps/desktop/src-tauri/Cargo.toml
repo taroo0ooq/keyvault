@@ -1,0 +1,35 @@
+[package]
+name = "keyvault-desktop"
+version = "0.1.0"
+description = "KeyVault desktop shell (Tauri v2) — zero-knowledge password manager"
+authors = ["KeyVault Contributors"]
+license = "MIT"
+edition = "2021"
+rust-version = "1.77.2"
+
+[lib]
+name = "keyvault_desktop_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.6.3", features = [] }
+
+[dependencies]
+vault-core = { path = "../../../crates/vault-core" }
+serde_json = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+log = "0.4"
+tauri = { version = "2.11.3", features = [] }
+tauri-plugin-log = "2"
+dirs = "6"
+uuid = { version = "1", features = ["v4"] }
+chrono = { version = "0.4", features = ["serde"] }
+arboard = "3"
+ureq = { version = "2", default-features = false, features = ["json"] }
+
+[profile.release]
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
+opt-level = "z"

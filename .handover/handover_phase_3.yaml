@@ -1,0 +1,55 @@
+version: "1.0"
+phase:
+  number: 3
+  name: "Browser Extension & Autofill"
+  completion_date: "2026-08-04"
+  status: "In Progress"
+  notes: >
+    MV3 extension with service worker, popup, form overlay autofill.
+    vault_daemon /v1 unlock/lock/items/search/reveal/generate/score (loopback).
+    List passwords redacted; one-shot POST /v1/reveal (15s TTL, rate limit 20/min)
+    powers content-script password fill. Native messaging host vault_native_host
+    implemented with install scripts; extension falls back when loopback fetch fails.
+features_implemented:
+  - id: "FEAT-030"
+    title: "MV3 extension shell + loopback daemon client"
+    description: "manifest v3, background poll, popup, content overlay, host match"
+    status: "Verified"
+    evidence:
+      - "apps/extension/"
+  - id: "FEAT-031"
+    title: "Daemon vault session API for extension"
+    description: "POST unlock|lock|items|reveal GET items|search CORS"
+    status: "Verified"
+  - id: "FEAT-032"
+    title: "One-shot password reveal + autofill"
+    description: "POST /v1/reveal; SW REVEAL_ITEM; content fill username+password"
+    status: "Verified"
+  - id: "FEAT-033"
+    title: "Native messaging host + extension fallback"
+    description: >
+      vault_native_host binary (length-prefixed JSON); proxies to loopback daemon;
+      extension nativeMessaging permission; loopback-first with native fallback;
+      install-native-host.ps1/.sh
+    status: "Verified"
+    evidence:
+      - "crates/vault-native-host/"
+      - "apps/extension/src/native.ts"
+      - "apps/extension/src/daemon.ts"
+      - "scripts/install-native-host.ps1"
+known_issues:
+  - id: "KI-030"
+    severity: "low"
+    description: "Reveal returns secret to content script memory briefly (ttl_ms advisory)"
+    mitigation: "Rate limit + no SW cache; native path still one-shot reveal"
+    status: "Mitigated"
+  - id: "KI-031"
+    severity: "low"
+    description: "Native host requires per-machine install + extension ID in manifest"
+    mitigation: "scripts/install-native-host.*; loopback remains primary"
+    status: "Mitigated"
+miro_board:
+  name: "PasswordManager"
+  url: "https://miro.com/app/board/uXjVH1LjUrs=/"
+handover_approved_by: ""
+approval_status: "Pending — autofill + native host done; stakeholder sign-off open"

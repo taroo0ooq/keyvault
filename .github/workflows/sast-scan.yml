@@ -1,23 +1,30 @@
-name: SAST, Secret & Dependency Scan
+# SAST + secrets + dependency policy — hardwired fail-closed
+# Invoked by primary CI (workflow_call) and on schedule / push / PR.
+name: SAST
 
 on:
   push:
     branches: [main, develop]
   pull_request:
-    branches: [main]
+    branches: [main, develop]
   schedule:
-    # Weekly security scan (Monday 06:00 UTC)
     - cron: "0 6 * * 1"
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read
   security-events: write
   actions: read
+  pull-requests: read
+
+concurrency:
+  group: sast-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  secret-scan:
-    name: TruffleHog (verified secrets only)
+  secret-trufflehog:
+    name: TruffleHog (verified secrets)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -26,20 +33,33 @@ jobs:
           fetch-depth: 0
 
       - name: TruffleHog OSS
-        uses: trufflesecurity/trufflehog@main
+        uses: trufflesecurity/trufflehog@v3.88.14
         with:
-          extra_args: --only-verified --results=verified
+          extra_args: --only-verified --results=verified --fail
+
+  secret-gitleaks:
+    name: Gitleaks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_ENABLE_COMMENTS: "false"
 
   codeql:
-    name: CodeQL (Rust + JavaScript-TypeScript)
+    name: CodeQL (Rust + JS/TS)
     runs-on: ubuntu-latest
     permissions:
       security-events: write
       contents: read
       actions: read
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v3
@@ -47,59 +67,119 @@ jobs:
           languages: rust, javascript-typescript
           queries: security-extended,security-and-quality
 
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@stable
 
-      - name: Build Rust crates (for CodeQL extract)
-        run: cargo build --workspace
+      - name: Build Rust crates (CodeQL extract; exclude Tauri desktop)
+        run: cargo build -p vault-core -p vault-daemon -p vault-ffi -p vault-native-host
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3
         with:
           category: "/language:rust-js"
 
-  rust-audit-clippy:
-    name: cargo-audit + clippy (strict)
+  rust-audit:
+    name: cargo-audit (advisories)
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install cargo-audit
+        run: cargo install cargo-audit --locked
+      - name: cargo audit (deny warnings)
+        run: cargo audit --deny warnings
 
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+  rust-deny:
+    name: cargo-deny (licenses / bans / sources)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check
+          arguments: --all-features
+
+  rust-clippy-test:
+    name: clippy + unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
 
-      - name: Install cargo-audit
-        run: cargo install cargo-audit --locked
+      - name: clippy (deny warnings; exclude Tauri desktop host)
+        run: |
+          cargo clippy -p vault-core -p vault-daemon -p vault-ffi -p vault-native-host \
+            --all-targets -- -D warnings
 
-      - name: cargo audit
-        run: cargo audit
+      - name: unit / integration tests
+        run: |
+          cargo test -p vault-core
+          cargo test -p vault-daemon
+          cargo test -p vault-ffi
+          cargo test -p vault-native-host
 
-      - name: clippy (deny warnings)
-        run: cargo clippy --workspace --all-targets -- -D warnings
+  semgrep:
+    name: Semgrep (security + secrets rules)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Semgrep CI (fail on findings)
+        run: |
+          docker run --rm -v "$PWD:/src" -w /src semgrep/semgrep:latest \
+            semgrep scan \
+              --config p/ci \
+              --config p/security-audit \
+              --config p/secrets \
+              --config p/rust \
+              --error \
+              --metrics=off \
+              .
 
-      - name: unit tests
-        run: cargo test --workspace
+  npm-audit-extension:
+    name: npm audit (extension)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: apps/extension/package-lock.json
+      - name: npm ci + audit (production + high+)
+        working-directory: apps/extension
+        run: |
+          npm ci
+          npm audit --audit-level=high
+
+  npm-audit-desktop:
+    name: npm audit (desktop)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: apps/desktop/package-lock.json
+      - name: npm ci + audit (high+)
+        working-directory: apps/desktop
+        run: |
+          npm ci
+          npm audit --audit-level=high
 
   flutter-analyzer:
-    name: Flutter analyzer
+    name: Flutter analyze + test
     runs-on: ubuntu-latest
-    # Mobile app lands in Phase 2; skip until apps/mobile exists with pubspec.
-    if: hashFiles('apps/mobile/pubspec.yaml') != ''
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
         with:
           channel: stable
-
-      - name: flutter pub get
+          cache: true
+      - name: flutter pub get / analyze / test
         working-directory: apps/mobile
-        run: flutter pub get
-
-      - name: flutter analyze
-        working-directory: apps/mobile
-        run: flutter analyze --fatal-infos
+        run: |
+          flutter pub get
+          flutter analyze --fatal-infos
+          flutter test

@@ -1,0 +1,37 @@
+version: "1.0"
+phase:
+  number: 10
+  name: "Mobile TOTP via vault_ffi"
+  completion_date: "2026-08-05"
+  status: "Completed (engineering)"
+  notes: >
+    Exposed kv_vault_totp_json and totp on item save in vault-ffi. Flutter
+    VaultItem, VaultService, and vault screen support TOTP secrets, list
+    copy-code action, and editor live code when native dylib is loaded.
+features_implemented:
+  - id: "FEAT-100"
+    title: "vault-ffi TOTP API"
+    description: "kv_vault_totp_json; ItemIn.totp on save; unit test covers code generation"
+    status: "Verified"
+  - id: "FEAT-101"
+    title: "Flutter mobile TOTP UI"
+    description: "totp field, 2FA badge, copy TOTP, editor secret + live code refresh"
+    status: "Verified"
+known_issues:
+  - id: "KI-100"
+    severity: "low"
+    description: "Mock vault backend returns placeholder 000000 for TOTP codes"
+    mitigation: "Use vault_ffi dylib for real codes"
+  - id: "KI-001"
+    severity: "medium"
+    description: "SQLCipher native still not linked"
+artifacts:
+  - path: "crates/vault-ffi/src/lib.rs"
+  - path: "apps/mobile/lib/screens/vault_screen.dart"
+  - path: "apps/mobile/lib/models/vault_item.dart"
+miro_board:
+  name: "PasswordManager"
+  url: "https://miro.com/app/board/uXjVH1LjUrs=/"
+  note: "MCP daily limit still blocks live resync"
+handover_approved_by: ""
+approval_status: "Pending stakeholder sign-off"

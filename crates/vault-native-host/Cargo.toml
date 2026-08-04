@@ -1,0 +1,15 @@
+[package]
+name = "vault-native-host"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Chrome/Firefox native messaging host — proxies to loopback vault_daemon"
+
+[[bin]]
+name = "vault_native_host"
+path = "src/main.rs"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+ureq = { version = "2", default-features = false, features = ["json"] }

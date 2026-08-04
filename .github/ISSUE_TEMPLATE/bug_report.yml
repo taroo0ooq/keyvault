@@ -1,0 +1,63 @@
+name: Bug report
+description: Report a functional or security defect
+title: "[BUG] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        File bugs that affect KeyVault. CI-created issues use the automated template.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: One-sentence description
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - vault-core
+        - vault-daemon
+        - desktop
+        - mobile
+        - extension
+        - native-host
+        - CI / security gates
+        - docs
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      value: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: checkboxes
+    id: severity
+    attributes:
+      label: Impact
+      options:
+        - label: Security / crypto
+        - label: Data loss
+        - label: Crash / hang
+        - label: Functional regression
+        - label: Cosmetic

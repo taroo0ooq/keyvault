@@ -20,12 +20,23 @@
 
 pub mod error;
 pub mod kdf;
+pub mod pairing;
 pub mod password;
 pub mod secure_key;
+pub mod totp;
+pub mod tunnel;
 pub mod vault_crypto;
 pub mod vault_db;
 
 pub use error::{VaultError, VaultResult};
+pub use pairing::{
+    api_token_matches, create_pairing_offer, find_device_by_token, hash_api_token,
+    issue_device_api_token, verify_pairing_token, PairedDevice, PairingOffer, PairingQrPayload,
+    PairingSecret, DEFAULT_PAIRING_TTL_SECS,
+};
+pub use tunnel::{
+    resolve_binary, tunnel_command_line, TunnelAgent, TunnelConfig, TunnelProvider, TunnelStatus,
+};
 pub use kdf::{
     derive_master_key, derive_master_key_with_fresh_params, KdfParams, MasterKey, ARGON2_ITERATIONS,
     ARGON2_MEMORY_KIB, ARGON2_PARALLELISM, MASTER_KEY_LEN,
@@ -36,13 +47,20 @@ pub use password::{
 };
 pub use secure_key::{
     protect_account_key, protect_key, unprotect_account_key, unprotect_key, AccountKey,
-    BiometricUnlock, WrappedKeyBlob,
+    BiometricUnlock, OsEnclaveStore, WrappedKeyBlob,
+};
+pub use totp::{
+    extract_secret_from_otpauth, generate_totp, generate_totp_custom, normalize_totp_secret,
+    TotpCode, TOTP_DIGITS, TOTP_PERIOD_SECS,
 };
 pub use vault_crypto::{
     create_key_verifier, decrypt, encrypt, unwrap_key, verify_master_key, wrap_key, CipherAlgorithm,
     DEFAULT_CIPHER, ENVELOPE_VERSION,
 };
-pub use vault_db::{Vault, VaultItem, SCHEMA_SQL, SCHEMA_VERSION};
+pub use vault_db::{
+    HealthFinding, PasswordHealthReport, Vault, VaultItem, BACKUP_FORMAT, BACKUP_VERSION,
+    SCHEMA_SQL, SCHEMA_VERSION,
+};
 
 /// Crate version string.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

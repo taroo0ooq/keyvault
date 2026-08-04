@@ -1,0 +1,9 @@
+{
+  "name": "app.keyvault.native",
+  "description": "KeyVault native messaging host — proxies to loopback vault_daemon",
+  "path": "REPLACE_WITH_HOST_BINARY_PATH",
+  "type": "stdio",
+  "allowed_origins": [
+    "chrome-extension://REPLACE_WITH_EXTENSION_ID/"
+  ]
+}

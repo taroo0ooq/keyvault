@@ -16,3 +16,6 @@ serde_json = { workspace = true }
 tracing = { workspace = true }
 tiny_http = "0.12"
 chrono = { workspace = true }
+uuid = { workspace = true }
+sha1 = { workspace = true }
+ureq = { version = "2", default-features = false, features = ["tls"] }

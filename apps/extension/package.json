@@ -1,0 +1,17 @@
+{
+  "name": "keyvault-extension",
+  "private": true,
+  "version": "0.1.0",
+  "description": "KeyVault Manifest V3 browser extension — loopback daemon client + autofill",
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "playwright test",
+    "test:unit": "node --test tests/unit/*.test.mjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.51.0",
+    "esbuild": "^0.25.0",
+    "typescript": "^5.8.2"
+  }
+}

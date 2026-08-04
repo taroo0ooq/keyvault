@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>KeyVault</title>
+    <link rel="stylesheet" href="/src/styles.css" />
+  </head>
+  <body>
+    <div id="app">
+      <!-- Auth gate -->
+      <section id="view-auth" class="view">
+        <div class="card auth-card">
+          <h1>KeyVault</h1>
+          <p class="muted">Local-first zero-knowledge password manager</p>
+
+          <div class="tabs">
+            <button type="button" class="tab active" data-tab="unlock">Unlock</button>
+            <button type="button" class="tab" data-tab="create">Create vault</button>
+          </div>
+
+          <form id="form-unlock" class="stack">
+            <label>
+              Vault path
+              <input id="unlock-path" type="text" autocomplete="off" spellcheck="false" />
+            </label>
+            <div class="row mode-row">
+              <label class="check"><input type="radio" name="auth-mode" value="password" checked /> Password</label>
+              <label class="check"><input type="radio" name="auth-mode" value="pin" /> PIN (≥8)</label>
+            </div>
+            <label>
+              <span id="unlock-secret-label">Master password</span>
+              <input id="unlock-password" type="password" autocomplete="current-password" />
+            </label>
+            <button type="submit" class="btn primary">Unlock</button>
+            <button type="button" id="btn-enclave-unlock" class="btn hidden">
+              Quick unlock (OS enclave)
+            </button>
+            <p id="enclave-hint" class="muted small hidden">
+              OS-protected key wrap available for this vault (DPAPI / login session).
+            </p>
+          </form>
+
+          <form id="form-create" class="stack hidden">
+            <label>
+              Vault path
+              <input id="create-path" type="text" autocomplete="off" spellcheck="false" />
+            </label>
+            <div class="row mode-row">
+              <label class="check"><input type="radio" name="auth-mode" value="password" checked /> Password</label>
+              <label class="check"><input type="radio" name="auth-mode" value="pin" /> PIN (≥8)</label>
+            </div>
+            <label>
+              <span id="create-secret-label">Master password</span>
+              <input id="create-password" type="password" autocomplete="new-password" />
+            </label>
+            <label>
+              Confirm
+              <input id="create-password2" type="password" autocomplete="new-password" />
+            </label>
+            <p id="create-entropy" class="muted small"></p>
+            <button type="submit" class="btn primary">Create &amp; unlock</button>
+          </form>
+
+          <p id="auth-error" class="error" role="alert"></p>
+        </div>
+      </section>
+
+      <!-- Main vault UI -->
+      <section id="view-vault" class="view hidden">
+        <header class="topbar">
+          <div>
+            <strong>KeyVault</strong>
+            <span id="vault-path-label" class="muted small"></span>
+          </div>
+          <div class="row">
+            <input id="search" type="search" placeholder="Search…" />
+            <label class="auto-lock-label muted small">
+              Auto-lock
+              <select id="auto-lock-secs" title="Idle auto-lock">
+                <option value="60">1 min</option>
+                <option value="300" selected>5 min</option>
+                <option value="900">15 min</option>
+                <option value="1800">30 min</option>
+              </select>
+            </label>
+            <button type="button" id="btn-remote" class="btn">Remote</button>
+            <button type="button" id="btn-backup" class="btn">Backup</button>
+            <button type="button" id="btn-security" class="btn">Security</button>
+            <button type="button" id="btn-trash" class="btn">Trash</button>
+            <button type="button" id="btn-generate" class="btn">Generate</button>
+            <button type="button" id="btn-add" class="btn primary">Add</button>
+            <button type="button" id="btn-lock" class="btn danger">Lock</button>
+          </div>
+        </header>
+
+        <dialog id="dlg-remote">
+          <form method="dialog" class="stack card remote-card">
+            <h2>Remote access (Phase 4)</h2>
+            <p class="muted small">
+              Requires <code>vault_daemon</code> on 127.0.0.1:8080. Tunnel stays loopback-only;
+              cloudflared/ngrok is an external process. Bearer is required while tunnel is running.
+            </p>
+            <p id="remote-status" class="mono small"></p>
+            <div class="row">
+              <button type="button" id="btn-tunnel-refresh" class="btn">Refresh status</button>
+              <button type="button" id="btn-tunnel-cf" class="btn">Start cloudflared</button>
+              <button type="button" id="btn-tunnel-ngrok" class="btn">Start ngrok</button>
+              <button type="button" id="btn-tunnel-stop" class="btn danger">Stop tunnel</button>
+            </div>
+            <label>
+              Public URL override (optional)
+              <input id="tunnel-public-url" type="url" placeholder="https://….trycloudflare.com" />
+            </label>
+            <div class="row">
+              <button type="button" id="btn-pairing-create" class="btn primary">Create QR pairing</button>
+              <button type="button" id="btn-pairing-devices" class="btn">List devices</button>
+            </div>
+            <pre id="remote-out" class="mono remote-out"></pre>
+            <button type="submit" class="btn">Close</button>
+          </form>
+        </dialog>
+
+        <main class="layout">
+          <aside class="list-panel">
+            <ul id="item-list"></ul>
+            <p id="empty-list" class="muted hidden">No items yet. Add your first credential.</p>
+          </aside>
+          <section class="detail-panel">
+            <div id="detail-empty" class="muted">Select an item or add a new one.</div>
+            <form id="form-item" class="stack hidden">
+              <input type="hidden" id="item-id" />
+              <label>
+                Title
+                <input id="item-title" required autocomplete="off" />
+              </label>
+              <label>
+                Username
+                <input id="item-username" autocomplete="username" />
+              </label>
+              <label>
+                Password
+                <div class="row">
+                  <input id="item-password" type="password" required autocomplete="off" />
+                  <button type="button" id="btn-toggle-pw" class="btn">Show</button>
+                  <button type="button" id="btn-copy-pw" class="btn">Copy</button>
+                </div>
+              </label>
+              <label>
+                URL
+                <input id="item-url" type="url" autocomplete="off" />
+              </label>
+              <label>
+                Notes
+                <textarea id="item-notes" rows="3"></textarea>
+              </label>
+              <label>
+                TOTP secret (base32 or otpauth:// URI)
+                <input id="item-totp" type="password" autocomplete="off" placeholder="optional 2FA" />
+              </label>
+              <div id="totp-live" class="row muted small hidden">
+                <span>Code:</span>
+                <strong id="totp-code" class="mono">————</strong>
+                <span id="totp-remain"></span>
+                <button type="button" id="btn-copy-totp" class="btn">Copy code</button>
+              </div>
+              <label>
+                Tags (comma-separated)
+                <input id="item-tags" autocomplete="off" />
+              </label>
+              <div class="row">
+                <button type="submit" class="btn primary">Save</button>
+                <button type="button" id="btn-delete" class="btn danger">Delete</button>
+              </div>
+            </form>
+          </section>
+        </main>
+        <p id="vault-error" class="error toast" role="alert"></p>
+      </section>
+
+      <!-- Trash: soft-deleted items -->
+      <dialog id="dlg-trash">
+        <form method="dialog" class="stack card">
+          <h2>Trash</h2>
+          <p class="muted small">Soft-deleted items. Restore or permanently purge.</p>
+          <ul id="trash-list" class="mono small"></ul>
+          <p id="trash-msg" class="muted small"></p>
+          <div class="row">
+            <button type="button" id="btn-trash-refresh" class="btn">Refresh</button>
+            <button type="button" id="btn-empty-trash" class="btn danger">Empty trash</button>
+            <button type="submit" class="btn">Close</button>
+          </div>
+        </form>
+      </dialog>
+
+      <!-- Security: change master password + CSV import -->
+      <dialog id="dlg-security">
+        <form method="dialog" class="stack card">
+          <h2>Security &amp; import</h2>
+          <h3 class="muted">Change master password</h3>
+          <p class="muted small">Re-encrypts all items. Re-enroll quick unlock after change.</p>
+          <label>
+            Current password
+            <input id="chg-current" type="password" autocomplete="current-password" />
+          </label>
+          <label>
+            New password (≥12)
+            <input id="chg-new" type="password" minlength="12" autocomplete="new-password" />
+          </label>
+          <label>
+            Confirm new
+            <input id="chg-confirm" type="password" minlength="12" autocomplete="new-password" />
+          </label>
+          <button type="button" id="btn-change-pw" class="btn primary">Change password</button>
+          <hr />
+          <h3 class="muted">CSV import / export</h3>
+          <p class="muted small">Chrome / Bitwarden-style: name,url,username,password[,notes,totp]</p>
+          <label>
+            CSV text
+            <textarea id="csv-blob" rows="5" class="mono" placeholder="name,url,username,password&#10;..."></textarea>
+          </label>
+          <div class="row">
+            <button type="button" id="btn-import-csv" class="btn">Import CSV</button>
+            <button type="button" id="btn-export-csv" class="btn">Export CSV</button>
+            <button type="button" id="btn-password-health" class="btn">Password health</button>
+          </div>
+          <pre id="health-out" class="mono small muted"></pre>
+          <p id="security-msg" class="muted small"></p>
+          <div class="row">
+            <button type="submit" class="btn">Close</button>
+          </div>
+        </form>
+      </dialog>
+
+      <!-- Encrypted backup modal -->
+      <dialog id="dlg-backup">
+        <form method="dialog" class="stack card">
+          <h2>Encrypted backup</h2>
+          <p class="muted small">
+            Portable AEAD backup sealed under a separate passphrase (min 12 chars).
+            Not the master password unless you choose to reuse it.
+          </p>
+          <label>
+            Export / import passphrase
+            <input id="backup-pass" type="password" minlength="12" autocomplete="new-password" />
+          </label>
+          <label>
+            Backup data (base64)
+            <textarea id="backup-blob" rows="6" class="mono" placeholder="Paste to import, or export fills this…"></textarea>
+          </label>
+          <label class="check">
+            <input id="backup-merge" type="checkbox" checked />
+            Merge on import (skip existing item IDs)
+          </label>
+          <p id="backup-msg" class="muted small"></p>
+          <div class="row">
+            <button type="button" id="btn-backup-export" class="btn primary">Export</button>
+            <button type="button" id="btn-backup-import" class="btn">Import</button>
+            <button type="button" id="btn-backup-copy" class="btn">Copy</button>
+            <button type="submit" class="btn">Close</button>
+          </div>
+        </form>
+      </dialog>
+
+      <!-- Password generator modal -->
+      <dialog id="dlg-generate">
+        <form method="dialog" class="stack card">
+          <h2>Password generator</h2>
+          <label>
+            Length
+            <input id="gen-length" type="number" min="8" max="128" value="20" />
+          </label>
+          <label class="check"><input id="gen-lower" type="checkbox" checked /> Lowercase</label>
+          <label class="check"><input id="gen-upper" type="checkbox" checked /> Uppercase</label>
+          <label class="check"><input id="gen-digits" type="checkbox" checked /> Digits</label>
+          <label class="check"><input id="gen-symbols" type="checkbox" checked /> Symbols</label>
+          <label class="check"><input id="gen-ambiguous" type="checkbox" /> Exclude ambiguous</label>
+          <output id="gen-result" class="mono"></output>
+          <p id="gen-score" class="muted small"></p>
+          <div class="row">
+            <button type="button" id="btn-gen-run" class="btn primary">Generate</button>
+            <button type="button" id="btn-gen-use" class="btn">Use in form</button>
+            <button type="submit" class="btn">Close</button>
+          </div>
+        </form>
+      </dialog>
+    </div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

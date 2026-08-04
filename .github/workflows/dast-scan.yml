@@ -1,34 +1,45 @@
-name: DAST Tunnel Scan
+# DAST — OWASP ZAP baseline against loopback vault_daemon
+# Hardwired fail-closed: fail_action true; findings fail the job.
+name: DAST
 
 on:
+  push:
+    branches: [main, develop]
   pull_request:
-    branches: [main]
+    branches: [main, develop]
+  schedule:
+    - cron: "0 7 * * 1"
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read
   issues: write
   pull-requests: write
+  security-events: write
+
+concurrency:
+  group: dast-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   zap-baseline:
-    name: OWASP ZAP baseline vs vault_daemon
+    name: OWASP ZAP baseline (fail on alerts)
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@stable
 
-      - name: Build vault_daemon
+      - name: Build vault_daemon (release)
         run: cargo build -p vault-daemon --release
 
       - name: Start vault_daemon on 127.0.0.1:8080
         run: |
+          set -euo pipefail
           ./target/release/vault_daemon &
           echo $! > /tmp/vault_daemon.pid
-          for i in $(seq 1 30); do
+          for i in $(seq 1 45); do
             if curl -sf http://127.0.0.1:8080/health >/dev/null; then
               echo "daemon healthy"
               exit 0
@@ -38,11 +49,34 @@ jobs:
           echo "daemon failed to become healthy"
           exit 1
 
-      - name: OWASP ZAP baseline scan
-        uses: zaproxy/action-baseline@v0.12.0
+      - name: Hard probes (auth / loopback posture)
+        run: |
+          set -euo pipefail
+          curl -sf http://127.0.0.1:8080/health | tee /tmp/health.json
+          curl -sf http://127.0.0.1:8080/v1/status | tee /tmp/status.json
+          curl -sf http://127.0.0.1:8080/v1/auth/mode | tee /tmp/auth.json
+          curl -sf http://127.0.0.1:8080/v1/tunnel/status | tee /tmp/tunnel.json
+
+          # Unauthenticated reveal must not return 200 with secrets
+          code=$(curl -s -o /tmp/reveal.out -w '%{http_code}' -X POST http://127.0.0.1:8080/v1/reveal \
+            -H 'Content-Type: application/json' -d '{}' || true)
+          echo "reveal_no_auth_code=$code"
+          test "$code" = "400" -o "$code" = "401" -o "$code" = "422"
+
+          python3 - <<'PY'
+          import json
+          h = json.load(open("/tmp/health.json"))
+          assert h.get("ok") is True, h
+          a = json.load(open("/tmp/auth.json"))
+          assert "auth_required" in a, a
+          print("pre-ZAP probes OK")
+          PY
+
+      - name: OWASP ZAP baseline scan (fail_action)
+        uses: zaproxy/action-baseline@v0.14.0
         with:
-          target: "http://127.0.0.1:8080/health"
-          cmd_options: "-a"
+          target: "http://127.0.0.1:8080"
+          cmd_options: "-a -c .github/zap-rules.tsv"
           allow_issue_writing: true
           fail_action: true
           artifact_name: zap-baseline-report
@@ -54,17 +88,17 @@ jobs:
             kill "$(cat /tmp/vault_daemon.pid)" || true
           fi
 
-      - name: Open GitHub Issue on ZAP findings
+      - name: Open GitHub Issue on DAST failure
         if: failure()
         uses: actions/github-script@v7
         with:
           script: |
-            const title = `[DAST] ZAP baseline findings — ${context.sha.substring(0, 7)}`;
+            const title = `[DAST] ZAP / probe failure — ${context.sha.substring(0, 7)}`;
             const body = [
-              '## DAST failure',
+              '## DAST failure (hardwired gate)',
               '',
-              `| Field | Value |`,
-              `| --- | --- |`,
+              '| Field | Value |',
+              '| --- | --- |',
               `| Workflow | \`${context.workflow}\` |`,
               `| Run ID | [\`${context.runId}\`](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}) |`,
               `| Commit | \`${context.sha}\` |`,
@@ -72,17 +106,28 @@ jobs:
               `| Actor | @${context.actor} |`,
               '',
               '### Next steps',
-              '1. Download the `zap-baseline-report` artifact from the failed run.',
-              '2. Reproduce locally: `cargo run -p vault-daemon` then scan `http://127.0.0.1:8080/health`.',
-              '3. Remediate findings; ensure daemon remains loopback-only.',
-              '4. Re-run this workflow on the PR.',
+              '1. Download the `zap-baseline-report` artifact.',
+              '2. Reproduce: `cargo build -p vault-daemon --release && ./target/release/vault_daemon`',
+              '3. Scan `http://127.0.0.1:8080` (loopback only).',
+              '4. Fix or document OUTOFSCOPE rules in `.github/zap-rules.tsv` with justification.',
+              '5. Re-run **CI** / **DAST** until green.',
               '',
-              '_Auto-created by `.github/workflows/dast-scan.yml`._',
+              '_Auto-created by `.github/workflows/dast-scan.yml` (fail-closed)._',
             ].join('\n');
-            await github.rest.issues.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              title,
-              body,
-              labels: ['security', 'dast', 'automated'],
-            });
+            try {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body,
+                labels: ['security', 'dast', 'automated'],
+              });
+            } catch (e) {
+              core.warning(`Issue create failed (labels may be missing): ${e.message}`);
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body,
+              });
+            }

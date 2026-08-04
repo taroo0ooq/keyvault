@@ -1,0 +1,50 @@
+version: "1.0"
+phase:
+  number: 9
+  name: "TOTP 2FA + enclave clear on password change"
+  completion_date: "2026-08-05"
+  status: "Completed (engineering)"
+  notes: >
+    RFC 6238 TOTP (HMAC-SHA1, 6 digits / 30s) with base32 secrets and otpauth://
+    URI parsing. Schema v2 adds encrypted totp_enc column with migration.
+    Master password change clears OS enclave sidecar so stale MK blobs cannot unlock.
+features_implemented:
+  - id: "FEAT-090"
+    title: "TOTP secrets + live codes"
+    description: >
+      vault-core totp module; VaultItem.totp; totp_code_for_item; daemon POST /v1/totp;
+      desktop field + live code countdown; list endpoints redact secrets.
+    status: "Verified"
+    evidence:
+      - "crates/vault-core/src/totp.rs"
+      - "crates/vault-daemon/src/main.rs"
+      - "apps/desktop/index.html"
+  - id: "FEAT-091"
+    title: "Clear enclave sidecar on password change"
+    description: "Vault::clear_enclave_sidecar called after change_master_password"
+    status: "Verified"
+security_verification:
+  sast_scans:
+    tool: "cargo test vault-core (55 tests)"
+    status: "PASSED (local)"
+automated_tests:
+  unit_tests:
+    vault_core: { total: 55, notes: "RFC 6238 vector + item totp roundtrip" }
+  smoke:
+    phase4: "includes POST /v1/totp after password change"
+known_issues:
+  - id: "KI-001"
+    severity: "medium"
+    description: "SQLCipher native still not linked"
+  - id: "KI-090"
+    severity: "low"
+    description: "Only SHA1 TOTP (Authenticator default); no SHA256/512 algorithm flag yet"
+artifacts:
+  - path: "crates/vault-core/src/totp.rs"
+  - path: "crates/vault-core/src/vault_db.rs"
+  - path: ".handover/handover_phase_9.yaml"
+miro_board:
+  name: "PasswordManager"
+  url: "https://miro.com/app/board/uXjVH1LjUrs=/"
+handover_approved_by: ""
+approval_status: "Pending stakeholder sign-off"

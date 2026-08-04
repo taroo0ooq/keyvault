@@ -3,15 +3,23 @@ resolver = "2"
 members = [
     "crates/vault-core",
     "crates/vault-daemon",
+    "crates/vault-ffi",
+    "crates/vault-native-host",
+    "apps/desktop/src-tauri",
 ]
-default-members = ["crates/vault-core", "crates/vault-daemon"]
+default-members = [
+    "crates/vault-core",
+    "crates/vault-daemon",
+    "crates/vault-ffi",
+    "crates/vault-native-host",
+]
 
 [workspace.package]
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
 authors = ["KeyVault Contributors"]
-repository = "https://github.com/keyvault/keyvault"
+repository = "https://github.com/taroo0ooq/keyvault"
 
 [workspace.dependencies]
 vault-core = { path = "crates/vault-core" }
@@ -26,6 +34,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 uuid = { version = "1", features = ["v4", "serde"] }
 rusqlite = { version = "0.32", features = ["bundled"] }
+sha1 = "0.10"
 sha2 = "0.10"
 hmac = "0.12"
 base64 = "0.22"

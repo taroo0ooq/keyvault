@@ -1,0 +1,8 @@
+# Default owners for security-sensitive paths (update handles as needed)
+* @taroo0ooq
+
+/.github/ @taroo0ooq
+/crates/ @taroo0ooq
+/scripts/ @taroo0ooq
+/Docs/COMPLIANCE.md @taroo0ooq
+/Docs/DEPENDENCY_MATRIX.md @taroo0ooq

@@ -60,7 +60,7 @@ impl std::fmt::Debug for AccountKey {
 pub fn protect_key(plaintext: &[u8]) -> VaultResult<WrappedKeyBlob> {
     #[cfg(windows)]
     {
-        return windows_protect(plaintext);
+        windows_protect(plaintext)
     }
     #[cfg(not(windows))]
     {
@@ -112,7 +112,7 @@ fn windows_protect(plaintext: &[u8]) -> VaultResult<WrappedKeyBlob> {
         CryptProtectData, CRYPT_INTEGER_BLOB, CRYPTPROTECT_UI_FORBIDDEN,
     };
 
-    let mut in_blob = CRYPT_INTEGER_BLOB {
+    let in_blob = CRYPT_INTEGER_BLOB {
         cbData: plaintext.len() as u32,
         pbData: plaintext.as_ptr() as *mut u8,
     };
@@ -125,7 +125,7 @@ fn windows_protect(plaintext: &[u8]) -> VaultResult<WrappedKeyBlob> {
     // at valid plaintext for the duration of the call.
     let ok: BOOL = unsafe {
         CryptProtectData(
-            &mut in_blob,
+            &in_blob,
             std::ptr::null(),
             std::ptr::null_mut(),
             std::ptr::null_mut(),
@@ -161,7 +161,7 @@ fn windows_unprotect(ciphertext: &[u8]) -> VaultResult<Vec<u8>> {
         CryptUnprotectData, CRYPT_INTEGER_BLOB, CRYPTPROTECT_UI_FORBIDDEN,
     };
 
-    let mut in_blob = CRYPT_INTEGER_BLOB {
+    let in_blob = CRYPT_INTEGER_BLOB {
         cbData: ciphertext.len() as u32,
         pbData: ciphertext.as_ptr() as *mut u8,
     };
@@ -172,7 +172,7 @@ fn windows_unprotect(ciphertext: &[u8]) -> VaultResult<Vec<u8>> {
 
     let ok: BOOL = unsafe {
         CryptUnprotectData(
-            &mut in_blob,
+            &in_blob,
             std::ptr::null_mut(),
             std::ptr::null_mut(),
             std::ptr::null_mut(),
@@ -242,12 +242,53 @@ fn software_dev_key() -> VaultResult<crate::kdf::MasterKey> {
     Ok(crate::kdf::MasterKey::from_bytes(bytes))
 }
 
-/// Trait for future biometric unlock bridges (Phase 2).
+/// Trait for biometric / OS-enclave unlock bridges.
 pub trait BiometricUnlock {
     /// Prompt the user (biometrics / PIN ≥ 8 digits) and return the released AK.
     fn unlock(&self) -> VaultResult<AccountKey>;
     /// Store AK protected by the OS enclave.
     fn enroll(&self, key: &AccountKey) -> VaultResult<()>;
+}
+
+/// File-backed enclave store for an [`AccountKey`] (or any 32-byte key material).
+///
+/// On Windows the blob is DPAPI-protected (tied to the interactive user logon).
+/// True Windows Hello / Keystore UI prompts are layered by the host app (Tauri /
+/// Flutter `local_auth`) before calling into this store.
+pub struct OsEnclaveStore {
+    path: std::path::PathBuf,
+}
+
+impl OsEnclaveStore {
+    pub fn new(path: impl Into<std::path::PathBuf>) -> Self {
+        Self { path: path.into() }
+    }
+
+    pub fn path(&self) -> &std::path::Path {
+        &self.path
+    }
+
+    pub fn exists(&self) -> bool {
+        self.path.exists()
+    }
+}
+
+impl BiometricUnlock for OsEnclaveStore {
+    fn unlock(&self) -> VaultResult<AccountKey> {
+        let raw = std::fs::read(&self.path).map_err(VaultError::from)?;
+        let blob: WrappedKeyBlob = serde_json::from_slice(&raw)?;
+        unprotect_account_key(&blob)
+    }
+
+    fn enroll(&self, key: &AccountKey) -> VaultResult<()> {
+        if let Some(parent) = self.path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        let blob = protect_account_key(key)?;
+        let json = serde_json::to_vec_pretty(&blob)?;
+        std::fs::write(&self.path, json)?;
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -283,5 +324,17 @@ mod tests {
         assert!(s.contains("ciphertext_len"));
         // Should not dump full hex of ciphertext in Debug.
         assert!(!s.contains("ciphertext: ["));
+    }
+
+    #[test]
+    fn os_enclave_store_roundtrip() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("ak.enclave.json");
+        let store = OsEnclaveStore::new(&path);
+        let ak = AccountKey::generate();
+        store.enroll(&ak).unwrap();
+        assert!(store.exists());
+        let restored = store.unlock().unwrap();
+        assert_eq!(ak.as_bytes(), restored.as_bytes());
     }
 }

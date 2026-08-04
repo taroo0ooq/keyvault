@@ -1,0 +1,149 @@
+version: "1.0"
+phase:
+  number: 6
+  name: "Hardening, Benchmarking & Handover"
+  completion_date: "2026-08-05"
+  status: "In Progress"
+  notes: >
+    Footprint measurement scripts (Windows + Linux/macOS JSON report), draft
+    release notes, packaging notes, and architectural compliance checklist
+    delivered. Windows release binaries measured well under 15 MB; daemon
+    idle WorkingSet ~6 MB. Multi-platform UI idle RAM and formal stakeholder
+    sign-off remain open. Live Miro board sync blocked by MCP daily quota;
+    offline seed at docs/miro-board-seed.md is authoritative until resync.
+features_implemented:
+  - id: "FEAT-060"
+    title: "Footprint measurement scripts"
+    description: >
+      measure-footprint.ps1 / measure-footprint.sh measure release binary
+      sizes and daemon idle RSS; write docs/footprint-report.json
+    status: "Verified"
+    evidence:
+      - "scripts/measure-footprint.ps1"
+      - "scripts/measure-footprint.sh"
+      - "docs/footprint-report.json"
+  - id: "FEAT-061"
+    title: "Draft release notes"
+    description: "docs/RELEASE_NOTES.md for 0.1.0 development snapshot with measured sizes"
+    status: "Verified"
+    evidence:
+      - "docs/RELEASE_NOTES.md"
+  - id: "FEAT-062"
+    title: "Architectural compliance checklist"
+    description: "docs/COMPLIANCE.md against product constraints; packaging notes"
+    status: "Verified"
+    evidence:
+      - "docs/COMPLIANCE.md"
+      - "docs/PACKAGING.md"
+  - id: "FEAT-063"
+    title: "Phase handover set complete"
+    description: "handover_phase_1..6.yaml present under .handover/"
+    status: "Verified"
+    evidence:
+      - ".handover/handover_phase_1.yaml"
+      - ".handover/handover_phase_6.yaml"
+  - id: "FEAT-064"
+    title: "CI footprint gate"
+    description: "phase5-gates runs measure-footprint.sh and fails if binaries exceed 15 MB"
+    status: "Verified"
+    evidence:
+      - ".github/workflows/phase5-gates.yml"
+footprint:
+  measured_platform: "Windows (local agent)"
+  vault_daemon_release_mb: 1.60
+  vault_ffi_dll_mb: 2.26
+  vault_native_host_mb: 0.58
+  keyvault_desktop_release_mb: 3.83
+  daemon_idle_working_set_mb: 5.99
+  target_desktop_binary_mb: 15
+  target_idle_ram_mb: 15
+  report: "docs/footprint-report.json"
+  notes: >
+    All measured release binaries under 15 MB. Daemon WorkingSet after /health
+    under 15 MB. Full desktop UI idle not automated.
+compliance_checklist:
+  - id: "C-01"
+    requirement: "Idle RAM < 15 MB"
+    status: "Partial"
+    evidence: "Daemon WorkingSet ~6 MB; full UI idle not automated"
+  - id: "C-02"
+    requirement: "Desktop binary < 15 MB"
+    status: "PASS"
+    evidence: "keyvault-desktop.exe ~3.83 MB release"
+  - id: "C-03"
+    requirement: "Master password never leaves device plaintext"
+    status: "PASS"
+    evidence: "Local KDF only; no network vault store"
+  - id: "C-04"
+    requirement: "No server-side vault storage"
+    status: "PASS"
+    evidence: "Local SQLite + AEAD; tunnel optional for access only"
+  - id: "C-05"
+    requirement: "Daemon loopback-only"
+    status: "PASS"
+    evidence: "Non-loopback bind exits with code 2"
+  - id: "C-06"
+    requirement: "SAST/DAST gates before merge"
+    status: "PASS (configured)"
+    evidence: "sast-scan, dast-scan, e2e-playwright, phase5-gates, vault-ffi"
+  - id: "C-07"
+    requirement: "Crypto isolated from UI"
+    status: "PASS"
+    evidence: "vault-core only; Tauri IPC / dart:ffi / daemon"
+  - id: "C-08"
+    requirement: "List endpoints redact secrets"
+    status: "PASS"
+    evidence: "/v1/entries redacted; /v1/reveal TTL"
+  - id: "C-09"
+    requirement: "Tunnel requires authentication"
+    status: "PASS"
+    evidence: "Bearer when tunnel on; QR HMAC pairing"
+  - id: "C-10"
+    requirement: "Auto-lock / MK zeroize"
+    status: "PASS"
+    evidence: "Desktop auto-lock; zeroize on drop"
+security_verification:
+  sast_scans:
+    tool: "sast-scan.yml + phase5-gates clippy/test"
+    status: "CONFIGURED"
+  dast_scans:
+    tool: "dast-scan.yml ZAP + curl probes"
+    status: "CONFIGURED"
+automated_tests:
+  unit_tests:
+    notes: "Phase 1–5 suites; Phase 6 adds measurement scripts not unit tests"
+  footprint:
+    windows_release: "measured under limits"
+known_issues:
+  - id: "KI-060"
+    severity: "low"
+    description: "Multi-platform footprint matrix (macOS/Linux desktop) not run in this session"
+    mitigation: "Run measure scripts on each release host"
+  - id: "KI-061"
+    severity: "low"
+    description: "Full UI idle RAM automation not implemented"
+    mitigation: "Extend measure script or CI smoke with desktop"
+  - id: "KI-062"
+    severity: "low"
+    description: "Live Miro board not resynced (MCP daily API limit)"
+    mitigation: "Resync from docs/miro-board-seed.md when quota resets"
+  - id: "KI-001"
+    severity: "medium"
+    description: "SQLCipher native C lib still not linked"
+    mitigation: "Field-level AEAD interim; tracked from Phase 1"
+artifacts:
+  - path: "scripts/measure-footprint.ps1"
+  - path: "scripts/measure-footprint.sh"
+  - path: "docs/RELEASE_NOTES.md"
+  - path: "docs/COMPLIANCE.md"
+  - path: "docs/PACKAGING.md"
+  - path: "docs/footprint-report.json"
+  - path: "docs/miro-board-seed.md"
+  - path: "crates/vault-native-host/"
+  - path: ".github/workflows/phase5-gates.yml"
+miro_board:
+  name: "PasswordManager"
+  url: "https://miro.com/app/board/uXjVH1LjUrs=/"
+  note: "Live Miro MCP rate-limited; seed at docs/miro-board-seed.md"
+handover_approved_by: ""
+approval_status: "Pending — Phase 6 engineering deliverables ready; multi-platform sign-off + Miro resync open"

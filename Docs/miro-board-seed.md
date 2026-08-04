@@ -3,33 +3,31 @@
 **Board:** [PasswordManager](https://miro.com/app/board/uXjVH1LjUrs=/)  
 **Board ID:** `uXjVH1LjUrs=`
 
-This document is the offline seed for the living Miro journey board. Apply via Miro MCP tools once OAuth is authenticated (`/mcps` → miro → `i`).
+Offline seed / mirror for the living Miro journey board.  
+**Last intended sync:** 2026-08-05 — Phase 1–6 + native host + CI footprint.  
+**Live apply status:** **BLOCKED** — Miro MCP Free plan daily limit (100 tool calls) exhausted. Both `miro` and `miro_board` servers reject all board API calls until the quota resets (typically next calendar day UTC) or the Miro org plan is upgraded.
+
+### Re-apply when Miro is available
+
+Ask again: *“Resync the PasswordManager Miro board from docs/miro-board-seed.md”*
+
+Apply order for the agent (once MCP works):
+
+1. `context_explore` board → list frames  
+2. Per frame: `layout_read` / `context_get`  
+3. Update or create stickies/tables to match Frames 1–9 + Footprint + Compliance below  
+4. Confirm roadmap statuses (Phase 1 Complete; 2–6 Near complete) and FEAT-033 / FEAT-064
 
 ---
 
 ## Frame 1 — System Architecture
 
-Title: **KeyVault System Architecture**
+1. **Core Engine (Rust)** — Argon2id · AES-GCM/XChaCha · Enclave · vault schema  
+2. **Native Clients** — Tauri v2 · Flutter + vault_ffi  
+3. **Browser Extensions** — MV3 + daemon reveal autofill  
+4. **Secure Tunnel Gateway** — cloudflared / ngrok → 127.0.0.1 only  
 
-Layers (top → bottom):
-
-1. **Core Engine (Rust)**  
-   Argon2id KDF · AES-256-GCM / XChaCha20-Poly1305 · Biometric Enclave Bridge · SQLCipher schema engine
-
-2. **Native Clients** (FFI / C-ABI)  
-   Desktop: Tauri v2 · Mobile: Flutter + flutter_rust_bridge
-
-3. **Browser Extensions** (Local WebSocket / IPC)  
-   Manifest V3 · Content scripts · Autofill overlay
-
-4. **Secure Tunnel Gateway Agent**  
-   cloudflared · ngrok wrapper · mTLS / token handshake
-
-Constraints sticky notes:
-- Idle RAM &lt; 15 MB
-- Desktop binary &lt; 15 MB
-- Master password never leaves device plaintext
-- No server-side vault storage
+Constraints: Idle RAM &lt; 15 MB · Desktop binary &lt; 15 MB · No off-device master password · No server vault · Loopback daemon
 
 ---
 
@@ -37,48 +35,36 @@ Constraints sticky notes:
 
 | Phase | Name | Status | Depends on |
 |-------|------|--------|------------|
-| 1 | Core Crypt Engine & Vault Architecture | **IN PROGRESS** | — |
-| 2 | Desktop & Mobile UI | Pending | Phase 1 handover |
-| 3 | Browser Extension & Autofill | Pending | Phase 2 handover |
-| 4 | Secure Tunneling & Pairing | Pending | Phase 3 handover |
-| 5 | Automated Testing, SAST, DAST | Pending | Phase 4 handover |
-| 6 | Hardening, Benchmarking & Handover | Pending | Phase 5 handover |
+| 1 | Core Crypt Engine & Vault Architecture | **Complete** | — |
+| 2 | Desktop & Mobile UI | **Near complete** | Phase 1 done |
+| 3 | Browser Extension & Autofill | **Near complete** | MV3 + reveal live |
+| 4 | Secure Tunneling & Pairing | **Near complete** | Tunnel + Bearer + Remote UI |
+| 5 | Automated Testing, SAST, DAST | **Near complete** | phase5-gates.yml |
+| 6 | Hardening, Benchmarking & Handover | **Near complete** | Footprint + compliance + notes |
+| 7 | CRUD API & portable backup | **Complete (eng.)** | Phase 6 near-complete |
+| 8 | Change password & CSV import | **Complete (eng.)** | Phase 7 |
+| 9 | TOTP + enclave clear | **Complete (eng.)** | Phase 8 |
+| 10 | Mobile TOTP (vault_ffi) | **Complete (eng.)** | Phase 9 |
+| 11 | Dart mock TOTP + extension TOTP | **Complete (eng.)** | Phase 10 |
+| 12 | CSV export + password health | **Complete (eng.)** | Phase 11 |
+| 13 | Trash + HIBP k-anonymity | **Complete (eng.)** | Phase 12 |
+
+Approvals: Phase 1 approved; Phases 2–13 pending stakeholder sign-off.
 
 ---
 
 ## Frame 3 — Cryptographic Key Flow
 
-```
-Master Password
-      │
-      ▼
- Argon2id (64 MiB, t=3, p=4)
-      │
-      ▼
- Master Key (MK, 32 B) ──encrypt──► Vault records (unique IV each)
-      │
-      ├── wrap ──► Account Key (AK) ──► OS Secure Enclave (DPAPI / Keychain / KeyStore)
-      │
-      └── verifier blob stored in vault_meta (no plaintext MK on disk)
-
-Auto-lock timer → zeroize MK/AK from process memory
-```
+Master Password → Argon2id → MK → AEAD vault · enclave sidecar · auto-lock zeroize  
+Extension: redacted list · `/v1/reveal` TTL  
+Remote: Bearer when tunnel on · QR HMAC pairing
 
 ---
 
 ## Frame 4 — CI/CD Gates
 
-```
-PR / push → [1] SAST Secret+CodeQL+audit+clippy  → must PASS
-         → [2] DAST ZAP baseline (vault_daemon)  → must PASS (PR to main)
-         → [3] Playwright E2E + auto issue       → must PASS
-         → merge to main only if all green
-```
-
-Workflows:
-- `.github/workflows/sast-scan.yml`
-- `.github/workflows/dast-scan.yml`
-- `.github/workflows/e2e-playwright.yml`
+- sast-scan · dast-scan · e2e-playwright · vault-ffi · **phase5-gates**  
+- smoke-phase4 · measure-footprint  
 
 ---
 
@@ -86,54 +72,110 @@ Workflows:
 
 | ID | Title | Phase | Status |
 |----|-------|-------|--------|
-| FEAT-001 | Argon2id KDF (product params) | 1 | Implementing |
-| FEAT-002 | AES-256-GCM / XChaCha20-Poly1305 envelopes | 1 | Implementing |
-| FEAT-003 | SQLCipher-compatible vault schema + CRUD | 1 | Implementing |
-| FEAT-004 | Password generator + entropy scoring | 1 | Implementing |
-| FEAT-005 | OS secure-key wrappers (DPAPI first) | 1 | Implementing |
-| FEAT-006 | vault_daemon loopback health API | 1 | Implementing |
-| FEAT-007 | CI SAST / DAST / Playwright gates | 1 | Implementing |
-| FEAT-010 | Tauri v2 desktop shell | 2 | Planned |
-| FEAT-020 | Flutter mobile + FFI | 2 | Planned |
-| FEAT-030 | MV3 extension + autofill | 3 | Planned |
-| FEAT-040 | cloudflared / ngrok + QR pairing | 4 | Planned |
+| FEAT-001–007 | Phase 1 core | 1 | **Done** |
+| FEAT-010 | Tauri desktop | 2 | **Done** |
+| FEAT-020 | Flutter + vault_ffi | 2 | Implementing |
+| FEAT-021–022 | Enclave / ffi CI | 2 | Done / Implementing |
+| FEAT-030–032 | MV3 + reveal autofill | 3 | **Done** |
+| FEAT-033 | Native messaging host + fallback | 3 | **Done** |
+| FEAT-040–044 | Tunnel, pairing, Bearer, scrape, Remote UI | 4 | **Done** |
+| FEAT-050–052 | Phase 5 CI gates | 5 | **Done** |
+| FEAT-060 | Footprint measurement scripts | 6 | **Done** |
+| FEAT-061 | Draft release notes | 6 | **Done** |
+| FEAT-062 | Compliance checklist | 6 | **Done** |
+| FEAT-063 | Handover YAML set 1–6 | 6 | **Done** |
+| FEAT-064 | CI footprint gate | 6 | **Done** |
+| FEAT-070 | Daemon item update/delete | 7 | **Done** |
+| FEAT-071 | Encrypted portable backup (core/daemon/desktop) | 7 | **Done** |
+| FEAT-080 | Change master password | 8 | **Done** |
+| FEAT-081 | CSV import | 8 | **Done** |
+| FEAT-090 | TOTP 2FA codes | 9 | **Done** |
+| FEAT-091 | Clear enclave on password change | 9 | **Done** |
+| FEAT-100 | vault-ffi TOTP API | 10 | **Done** |
+| FEAT-101 | Flutter mobile TOTP UI | 10 | **Done** |
+| FEAT-110 | Pure-Dart TOTP (mock) | 11 | **Done** |
+| FEAT-111 | Extension TOTP copy | 11 | **Done** |
+| FEAT-120 | CSV export | 12 | **Done** |
+| FEAT-121 | Offline password health | 12 | **Done** |
+| FEAT-130 | Soft-delete trash | 13 | **Done** |
+| FEAT-131 | HIBP k-anonymity check | 13 | **Done** |
 
 ---
 
 ## Frame 6 — Risk & Security Board
 
-| Risk | Severity | Mitigation | Status |
-|------|----------|------------|--------|
-| MK retained in memory too long | High | Auto-lock + zeroize on drop | Designed |
-| SQLCipher native link on Windows | Med | Field-level AEAD + schema-compatible DDL | Accepted interim |
-| Tunnel exposure if bind misconfig | Critical | Hard-refuse non-loopback bind | Implemented |
-| Extension XSS / injection | High | MV3 isolation + native messaging only | Phase 3 |
-| Weak master password | Med | Entropy scoring + onboarding guidance | Partial (core) |
+| Risk | Severity | Status |
+|------|----------|--------|
+| MK in memory too long | High | Implemented (auto-lock) |
+| SQLCipher native | Med | Accepted interim |
+| Non-loopback bind | Critical | Implemented |
+| Tunnel without auth | Critical | Implemented (Bearer) |
+| Content-script secrets | High | Implemented (reveal TTL) |
+| Android ffi missing | Med | Designed (CI artifacts) |
+| Miro sync lag | Low | **Active** — MCP daily limit; seed is SoT until resync |
 
 ---
 
 ## Frame 7 — Phase Handover Tracking
 
-| Phase | Handover file | Approved |
-|-------|---------------|----------|
-| 1 | `.handover/handover_phase_1.yaml` | Pending completion |
-| 2–6 | TBD | — |
+| Phase | File | Approved |
+|-------|------|----------|
+| 1 | handover_phase_1.yaml | **Approved** |
+| 2–5 | handover_phase_N.yaml | Pending |
+| 6 | handover_phase_6.yaml | Pending (engineering ready) |
 
 ---
 
-## Frame 8 — Decision Log
+## Frame 8 — Decision Log (latest)
 
-| Date | Decision | Rationale |
-|------|----------|-----------|
-| 2026-08-04 | Use existing Miro board PasswordManager (`uXjVH1LjUrs=`) | User-designated single source of truth |
-| 2026-08-04 | Field-level AES-GCM + SQLCipher schema (not linked SQLCipher C lib yet) | Portability on Windows MSVC CI; zero-knowledge preserved |
-| 2026-08-04 | vault_daemon refuses non-loopback binds | Prevent accidental remote exposure |
-| 2026-08-04 | Product Argon2id params in create path; tests accept real cost | Security parity with production |
+- Phase 5: phase5-gates; exclude Tauri from Linux cargo test  
+- Phase 4: external tunnel only; Bearer; URL scrape; Desktop Remote  
+- Phase 6: measure-footprint (Win+Unix JSON); COMPLIANCE.md; PACKAGING.md; RELEASE_NOTES with measured sizes  
+- Post-Phase-6: vault_native_host + extension fallback (KI-031); phase5-gates footprint gate  
+- FEAT-070/071: daemon CRUD (`/v1/items/update|delete`) + encrypted backup export/import  
+- FEAT-080/081: change master password + CSV import  
+- FEAT-090/091: TOTP (RFC 6238) + clear enclave sidecar on password change  
+- FEAT-100/101: vault_ffi `kv_vault_totp_json` + Flutter mobile TOTP UI  
+- FEAT-110/111: pure-Dart TotpDart mock + extension Copy TOTP  
+- FEAT-120/121: CSV export + offline password health (weak/reused)  
+- FEAT-130/131: soft-delete trash + HIBP k-anonymity  
+
 
 ---
 
-## Frame 9 — Open Issues
+## Frame 9 — Status & Open Issues
 
-- Miro MCP OAuth must be completed in Grok (`/mcps` → miro → press `i`) before live board updates.
-- Rust MSVC build tools required on Windows for full native linking.
-- Phase 2+ apps are directory placeholders only.
+**Done:** Phases 1 core; 2 desktop; 3 autofill; 4 tunnel/auth/UI; 5 CI gates; 6 footprint + compliance + packaging notes  
+
+**Measured (Windows release):**  
+- vault_daemon ~1.60 MB  
+- vault_ffi.dll ~2.26 MB  
+- keyvault-desktop ~3.83 MB (**&lt; 15 MB**)  
+- daemon idle WorkingSet ~5.98 MB (**&lt; 15 MB**, daemon only)
+
+**Open:**  
+- KI-001 SQLCipher native  
+- KI-010 Android .so not in git  
+- KI-031 Native messaging (mitigated — host + install scripts)  
+
+- Multi-platform footprint matrix  
+- Full UI idle RAM automation  
+- Handover approvals 2–6  
+- Live Miro resync (**blocked — Free MCP 100/day limit**)  
+- Next: re-run resync after quota reset; stakeholder sign-off / formal 0.1.0 tag  
+
+---
+
+## Footprint table (for board table widget)
+
+| Artifact | Size (MB) | Limit | Status |
+|----------|-----------|-------|--------|
+| vault_daemon.exe | ~1.60 | 15 | OK |
+| vault_ffi.dll | ~2.26 | 15 | OK |
+| vault_native_host.exe | ~0.58 | 15 | OK |
+| keyvault-desktop.exe | ~3.83 | 15 | OK |
+| Daemon idle WorkingSet | ~5.99 | 15 | OK |
+
+## Compliance summary (for board sticky)
+
+C-02..C-10 PASS · C-01 Partial (daemon OK, UI idle TBD) · See docs/COMPLIANCE.md
