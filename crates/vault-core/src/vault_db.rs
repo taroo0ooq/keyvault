@@ -800,7 +800,7 @@ impl Vault {
                 None => continue,
             };
             let title = get(i_title)
-                .or_else(|| get(i_url).map(|u| u.clone()))
+                .or_else(|| get(i_url))
                 .unwrap_or_else(|| "Imported".into());
             let mut item = VaultItem::new(title, get(i_user), password);
             item.url = get(i_url);

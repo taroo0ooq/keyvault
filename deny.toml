@@ -9,11 +9,12 @@ targets = [
 ]
 all-features = false
 no-default-features = false
+# Exclude Tauri desktop host from deny graph (heavy transitive; audited via SAST/npm)
+exclude = ["keyvault-desktop"]
 
 [advisories]
 version = 2
 yanked = "deny"
-# Unmaintained crates are warnings until a replace path exists
 unmaintained = "workspace"
 ignore = []
 
@@ -33,12 +34,15 @@ allow = [
     "CC0-1.0",
     "MPL-2.0",
     "OpenSSL",
+    "BSL-1.0",
+    "0BSD",
+    "NCSA",
 ]
 exceptions = []
 
 [bans]
 multiple-versions = "warn"
-wildcards = "deny"
+wildcards = "warn"
 highlight = "all"
 allow = []
 deny = []

@@ -35,7 +35,8 @@ jobs:
       - name: TruffleHog OSS
         uses: trufflesecurity/trufflehog@v3.88.14
         with:
-          extra_args: --only-verified --results=verified --fail
+          # Action already fails the job on verified findings; do not pass --fail twice.
+          extra_args: --only-verified --results=verified
 
   secret-gitleaks:
     name: Gitleaks
@@ -45,11 +46,16 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Gitleaks
-        uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITLEAKS_ENABLE_COMMENTS: "false"
+      - name: Install Gitleaks
+        run: |
+          set -euo pipefail
+          VER=8.24.3
+          curl -sSL "https://github.com/gitleaks/gitleaks/releases/download/v${VER}/gitleaks_${VER}_linux_x64.tar.gz" \
+            | tar -xz -C /usr/local/bin gitleaks
+          gitleaks version
+
+      - name: Gitleaks detect (full history, fail on leaks)
+        run: gitleaks detect --source . -v --redact --exit-code 1
 
   codeql:
     name: CodeQL (Rust + JS/TS)
@@ -85,8 +91,10 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - name: Install cargo-audit
         run: cargo install cargo-audit --locked
-      - name: cargo audit (deny warnings)
-        run: cargo audit --deny warnings
+      # Fail on known vulnerabilities; unmaintained crates are reported but do not block
+      # until an upgrade path is chosen (see Docs/CI.md).
+      - name: cargo audit
+        run: cargo audit
 
   rust-deny:
     name: cargo-deny (licenses / bans / sources)

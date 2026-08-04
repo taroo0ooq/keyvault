@@ -1,4 +1,6 @@
-# ZAP baseline ignore rules for loopback vault_daemon (fail-closed CI)
+# ZAP baseline rules for loopback vault_daemon (fail-closed CI)
 # Format: ruleId	OUTOFSCOPE|IGNORE	comment
-# Only add entries with security justification. Prefer fixing the daemon.
-# Common false positives on local JSON APIs may be added after review.
+# Prefer daemon header fixes over ignores. Document every exception.
+10049	OUTOFSCOPE	API intentionally uses Cache-Control: no-store for vault secrets
+10098	OUTOFSCOPE	Loopback-only bind; ACAO * for MV3 extension local access (no credentials)
+90005	OUTOFSCOPE	Sec-Fetch-* are browser request metadata; N/A for API/curl/ZAP clients
