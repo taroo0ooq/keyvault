@@ -1,6 +1,5 @@
-# ZAP baseline rule configuration (TAB-separated: RULE_ID\tLEVEL)
+# ZAP baseline rule configuration (TAB-separated: RULE_ID<TAB>LEVEL)
 # LEVEL: FAIL | WARN | INFO | IGNORE
-# Loopback vault API exceptions — document in Docs/CI.md
 10049	IGNORE
 10098	IGNORE
 90005	IGNORE

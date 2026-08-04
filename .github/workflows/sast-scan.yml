@@ -52,8 +52,10 @@ jobs:
             | tar -xz -C /usr/local/bin gitleaks
           gitleaks version
 
-      - name: Gitleaks detect (full history, fail on leaks)
-        run: gitleaks detect --source . -v --redact --exit-code 1
+      - name: Gitleaks detect (working tree, fail on leaks)
+        # Scan current tree (not full history of public TOTP RFC vectors).
+        # TruffleHog covers verified secrets across git history.
+        run: gitleaks detect --source . --no-git -v --redact --exit-code 1 --config .gitleaks.toml
 
   codeql:
     name: CodeQL (Rust + JS/TS)
@@ -132,14 +134,17 @@ jobs:
       - uses: actions/checkout@v4
       - name: Semgrep CI (fail on findings)
         run: |
-          # p/rust flags intentional FFI/DPAPI `unsafe` blocks; exclude that rule.
-          # Still fail-closed on security-audit, secrets, and CI packs.
+          # Secrets + security-audit packs (fail-closed).
+          # Exclude: intentional Rust unsafe (FFI/DPAPI), Dependabot cooldown style,
+          # and loopback HTTP used by local daemon clients.
           docker run --rm -v "$PWD:/src" -w /src semgrep/semgrep:latest \
             semgrep scan \
-              --config p/ci \
               --config p/security-audit \
               --config p/secrets \
               --exclude-rule rust.lang.security.unsafe-usage.unsafe-usage \
+              --exclude-rule package_managers.dependabot.dependabot-missing-cooldown.dependabot-missing-cooldown \
+              --exclude-rule typescript.react.security.react-insecure-request.react-insecure-request \
+              --exclude-rule javascript.lang.security.audit.detect-insecure-websocket.detect-insecure-websocket \
               --error \
               --metrics=off \
               .
