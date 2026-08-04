@@ -17,8 +17,10 @@ Local builds are for iteration only; **GitHub Actions is the source of truth**.
 Branch protection must require:
 
 ```text
-CI / required-gate
+required-gate
 ```
+
+(GitHub reports the nested CI job as `required-gate`.)
 
 ## Hardwired scanners (SAST)
 
@@ -69,7 +71,7 @@ cargo test -p vault-core -p vault-daemon -p vault-ffi
 cd apps/extension && npm test
 cd apps/mobile && flutter test
 
-# 3. Open PR → wait for CI / required-gate
+# 3. Open PR → wait for required-gate
 # 4. Merge only when required-gate is green
 ```
 
@@ -85,7 +87,7 @@ gh api -X PUT repos/OWNER/REPO/branches/main/protection \
 {
   "required_status_checks": {
     "strict": true,
-    "contexts": ["CI / required-gate"]
+    "contexts": ["required-gate"]
   },
   "enforce_admins": true,
   "required_pull_request_reviews": {
