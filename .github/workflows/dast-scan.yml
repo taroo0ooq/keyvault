@@ -92,6 +92,11 @@ jobs:
           script: |
             const short = context.sha.substring(0, 7);
             const title = `[DAST] ZAP / probe failure — ${short}`;
+            // Dependabot PR failures stay on the PR; do not spam product Issues.
+            if (context.actor === 'dependabot[bot]' || (context.ref || '').includes('dependabot/')) {
+              core.info('Skipping DAST issue for Dependabot run.');
+              return;
+            }
             // Deduplicate: one open issue per SHA (avoid spam on re-runs)
             const q = `repo:${context.repo.owner}/${context.repo.repo} is:issue is:open label:automated label:dast in:title ${short}`;
             const found = await github.rest.search.issuesAndPullRequests({ q, per_page: 1 });

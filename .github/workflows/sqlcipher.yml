@@ -9,8 +9,9 @@ on:
   # Weekly canary so the optional path does not bit-rot
   schedule:
     - cron: "0 8 * * 1"
-  # Also run when vault storage / feature flags change
+  # Also run when vault storage / feature flags change (product branches only)
   pull_request:
+    branches: [main, develop]
     paths:
       - "crates/vault-core/**"
       - "Cargo.toml"
