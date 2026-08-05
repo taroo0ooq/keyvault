@@ -58,8 +58,8 @@ pub use vault_crypto::{
     DEFAULT_CIPHER, ENVELOPE_VERSION,
 };
 pub use vault_db::{
-    HealthFinding, PasswordHealthReport, Vault, VaultItem, BACKUP_FORMAT, BACKUP_VERSION,
-    SCHEMA_SQL, SCHEMA_VERSION,
+    storage_backend_label, HealthFinding, PasswordHealthReport, Vault, VaultItem, BACKUP_FORMAT,
+    BACKUP_VERSION, SCHEMA_SQL, SCHEMA_VERSION,
 };
 
 /// Crate version string.
@@ -75,6 +75,8 @@ pub fn health_check() -> HealthStatus {
         argon2_iterations: ARGON2_ITERATIONS,
         argon2_parallelism: ARGON2_PARALLELISM,
         default_cipher: format!("{DEFAULT_CIPHER:?}"),
+        storage_backend: storage_backend_label(),
+        sqlcipher_feature: cfg!(feature = "sqlcipher"),
     }
 }
 
@@ -95,6 +97,10 @@ pub struct HealthStatus {
     pub argon2_parallelism: u32,
     /// Default AEAD algorithm name.
     pub default_cipher: String,
+    /// `sqlite-aead` (default) or `sqlcipher-aead` when built with `--features sqlcipher`.
+    pub storage_backend: &'static str,
+    /// Whether the crate was compiled with the optional SQLCipher feature.
+    pub sqlcipher_feature: bool,
 }
 
 #[cfg(test)]
@@ -108,5 +114,12 @@ mod tests {
         assert_eq!(h.argon2_memory_kib, 64 * 1024);
         assert_eq!(h.argon2_iterations, 3);
         assert_eq!(h.argon2_parallelism, 4);
+        assert_eq!(h.storage_backend, storage_backend_label());
+        assert_eq!(h.sqlcipher_feature, cfg!(feature = "sqlcipher"));
+        if cfg!(feature = "sqlcipher") {
+            assert_eq!(h.storage_backend, "sqlcipher-aead");
+        } else {
+            assert_eq!(h.storage_backend, "sqlite-aead");
+        }
     }
 }

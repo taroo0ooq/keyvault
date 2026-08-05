@@ -48,7 +48,7 @@ cargo build -p vault-daemon -p vault-ffi --release
 |-----|----------|------|
 | Multi-platform footprint (macOS/Linux desktop) | Low | Run measure scripts on each release host |
 | Full UI idle RAM automation | Medium | Extend measure script or CI job with desktop smoke |
-| SQLCipher native C lib | Medium | Field-level AEAD interim; track as KI-001 |
+| SQLCipher native C lib | Medium | Optional `--features sqlcipher` + Linux CI canary; default field-level AEAD; see SQLCIPHER.md (KI-001) |
 | mTLS client certs (vs Bearer) | Low | Optional hardening after pairing tokens |
 | Android `libvault_ffi.so` not in git | Medium | CI artifacts via `vault-ffi.yml` |
 

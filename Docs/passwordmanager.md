@@ -68,6 +68,12 @@ Strictly enforce:
 ### 4. Phase-by-Phase Development Roadmap (Execute Strictly)
 Follow this sequence. No phase may start until the previous phase’s handover YAML is complete and approved.
 
+**Hardwired CI gate (mandatory):** No phase may be marked complete, and no next phase may start, until:
+
+1. The phase PR’s primary **CI** workflow is fully green (`required-gate` = success), covering **SAST**, **DAST** (OWASP ZAP + probes), **Playwright E2E**, product gates, and vault-ffi.
+2. There are **no open GitHub Issues** labeled `automated` (or other unfixed CI/security bugs from the gates) — every registered failure must be fixed and the issue closed.
+3. Local green is **not** sufficient; GitHub Actions is the source of truth (see [CI.md](./CI.md)).
+
 - **Phase 1 – Core Crypt Engine & Vault Architecture (Rust)**  
   Argon2id + SQLCipher schemas, platform secure-key wrappers (Keychain/KeyStore/DPAPI), custom password generator + entropy, 100% unit test coverage on crypto functions.
 

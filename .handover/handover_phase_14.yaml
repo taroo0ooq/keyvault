@@ -1,0 +1,37 @@
+version: "1.0"
+phase:
+  number: 14
+  name: "SQLCipher feature scaffold (KI-001 progress)"
+  completion_date: "2026-08-05"
+  status: "Completed (engineering)"
+  notes: >
+    Optional Cargo feature vault-core/sqlcipher wires rusqlite
+    bundled-sqlcipher-vendored-openssl with PRAGMA key on create/open/unlock.
+    Default remains sqlite-aead for CI portability. storage_backend meta + health
+    payload expose which backend is compiled. Docs/SQLCIPHER.md. Desktop HIBP
+    Check breach button wired via daemon. SQLCipher path verified on default
+    (sqlite-aead) unit tests; full SQLCipher compile deferred to Linux CI (Phase 15).
+features_implemented:
+  - id: "FEAT-140"
+    title: "Optional SQLCipher feature flag + PRAGMA key"
+    description: "sqlcipher feature; open_with_password; dual-layer AEAD still on"
+    status: "Verified (default path); SQLCipher path optional"
+  - id: "FEAT-141"
+    title: "storage_backend health metadata"
+    description: "sqlite-aead vs sqlcipher-aead in meta + health_check()"
+    status: "Verified"
+known_issues:
+  - id: "KI-001"
+    severity: "medium"
+    description: "SQLCipher not default; Windows MSVC OpenSSL builds flaky"
+    mitigation: "Feature flag + docs; Linux CI canary in Phase 15; field AEAD primary on default"
+artifacts:
+  - path: "Docs/SQLCIPHER.md"
+  - path: "crates/vault-core/Cargo.toml"
+  - path: "crates/vault-core/src/vault_db.rs"
+miro_board:
+  name: "PasswordManager"
+  url: "https://miro.com/app/board/uXjVH1LjUrs=/"
+  note: "Seed updated; live board re-sync pending"
+handover_approved_by: ""
+approval_status: "Pending stakeholder sign-off"

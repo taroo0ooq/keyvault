@@ -4,8 +4,8 @@
 **Board ID:** `uXjVH1LjUrs=`
 
 Offline seed / mirror for the living Miro journey board.  
-**Last intended sync:** 2026-08-05 — Phase 1–6 + native host + CI footprint.  
-**Live apply status:** **BLOCKED** — Miro MCP Free plan daily limit (100 tool calls) exhausted. Both `miro` and `miro_board` servers reject all board API calls until the quota resets (typically next calendar day UTC) or the Miro org plan is upgraded.
+**Last intended sync:** 2026-08-05 — Phases 1–15 eng (FEAT through 150; SQLCipher CI canary).  
+**Live apply status:** **PARTIAL 2026-08-05** — Phase 14–15 status doc applied on board; tables still mirror seed for full re-sync.
 
 ### Re-apply when Miro is available
 
@@ -48,8 +48,10 @@ Constraints: Idle RAM &lt; 15 MB · Desktop binary &lt; 15 MB · No off-device m
 | 11 | Dart mock TOTP + extension TOTP | **Complete (eng.)** | Phase 10 |
 | 12 | CSV export + password health | **Complete (eng.)** | Phase 11 |
 | 13 | Trash + HIBP k-anonymity | **Complete (eng.)** | Phase 12 |
+| 14 | SQLCipher feature scaffold | **Complete (eng.)** | Phase 13 |
+| 15 | SQLCipher Linux CI canary | **Complete (eng.)** | Phase 14 |
 
-Approvals: Phase 1 approved; Phases 2–13 pending stakeholder sign-off.
+Approvals: Phase 1 approved; Phases 2–15 pending stakeholder sign-off.
 
 ---
 
@@ -99,6 +101,9 @@ Remote: Bearer when tunnel on · QR HMAC pairing
 | FEAT-121 | Offline password health | 12 | **Done** |
 | FEAT-130 | Soft-delete trash | 13 | **Done** |
 | FEAT-131 | HIBP k-anonymity check | 13 | **Done** |
+| FEAT-140 | Optional SQLCipher feature + PRAGMA key | 14 | **Done** |
+| FEAT-141 | storage_backend health metadata | 14 | **Done** |
+| FEAT-150 | Optional Linux SQLCipher CI workflow | 15 | **Done** |
 
 ---
 
@@ -112,7 +117,7 @@ Remote: Bearer when tunnel on · QR HMAC pairing
 | Tunnel without auth | Critical | Implemented (Bearer) |
 | Content-script secrets | High | Implemented (reveal TTL) |
 | Android ffi missing | Med | Designed (CI artifacts) |
-| Miro sync lag | Low | **Active** — MCP daily limit; seed is SoT until resync |
+| Miro sync lag | Low | **Mitigated** — resynced 2026-08-05; seed remains backup SoT |
 
 ---
 
@@ -139,6 +144,8 @@ Remote: Bearer when tunnel on · QR HMAC pairing
 - FEAT-110/111: pure-Dart TotpDart mock + extension Copy TOTP  
 - FEAT-120/121: CSV export + offline password health (weak/reused)  
 - FEAT-130/131: soft-delete trash + HIBP k-anonymity  
+- FEAT-140/141: optional SQLCipher feature + storage_backend metadata (KI-001 progress)  
+- FEAT-150: optional Linux SQLCipher CI canary (not required-gate)  
 
 
 ---
@@ -154,15 +161,15 @@ Remote: Bearer when tunnel on · QR HMAC pairing
 - daemon idle WorkingSet ~5.98 MB (**&lt; 15 MB**, daemon only)
 
 **Open:**  
-- KI-001 SQLCipher native  
+- KI-001 SQLCipher — **mitigated** (feature + Linux CI); product default remains sqlite-aead; Windows MSVC packaging TBD  
 - KI-010 Android .so not in git  
 - KI-031 Native messaging (mitigated — host + install scripts)  
 
 - Multi-platform footprint matrix  
 - Full UI idle RAM automation  
-- Handover approvals 2–6  
-- Live Miro resync (**blocked — Free MCP 100/day limit**)  
-- Next: re-run resync after quota reset; stakeholder sign-off / formal 0.1.0 tag  
+- Handover approvals 2–15  
+- Live Miro resync after Phase 14–15  
+- Next: stakeholder sign-off / formal 0.1.0 tag; OS autofill / mTLS hardening backlog  
 
 ---
 

@@ -90,7 +90,15 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const title = `[DAST] ZAP / probe failure — ${context.sha.substring(0, 7)}`;
+            const short = context.sha.substring(0, 7);
+            const title = `[DAST] ZAP / probe failure — ${short}`;
+            // Deduplicate: one open issue per SHA (avoid spam on re-runs)
+            const q = `repo:${context.repo.owner}/${context.repo.repo} is:issue is:open label:automated label:dast in:title ${short}`;
+            const found = await github.rest.search.issuesAndPullRequests({ q, per_page: 1 });
+            if (found.data.total_count > 0) {
+              core.info(`Open DAST issue already exists for ${short}; not creating duplicate.`);
+              return;
+            }
             const body = [
               '## DAST failure (hardwired gate)',
               '',
@@ -102,12 +110,15 @@ jobs:
               `| Branch | \`${context.ref}\` |`,
               `| Actor | @${context.actor} |`,
               '',
+              '### Policy',
+              '**Block merge / next development phase** until this is fixed and **CI / required-gate** is green.',
+              '',
               '### Next steps',
               '1. Download the `zap-baseline-report` artifact.',
               '2. Reproduce: `cargo build -p vault-daemon --release && ./target/release/vault_daemon`',
               '3. Scan `http://127.0.0.1:8080` (loopback only).',
               '4. Fix or document OUTOFSCOPE rules in `.github/zap-rules.tsv` with justification.',
-              '5. Re-run **CI** / **DAST** until green.',
+              '5. Re-run **CI** / **DAST** until green, then close this issue.',
               '',
               '_Auto-created by `.github/workflows/dast-scan.yml` (fail-closed)._',
             ].join('\n');

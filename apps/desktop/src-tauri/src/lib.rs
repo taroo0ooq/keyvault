@@ -185,7 +185,7 @@ fn open_session(
         if !path.exists() {
             return Err(format!("vault not found: {}", path.display()));
         }
-        let mut vault = Vault::open(&path).map_err(map_err)?;
+        let mut vault = Vault::open_with_password(&path, master_password).map_err(map_err)?;
         vault.unlock(master_password).map_err(map_err)?;
         enroll_enclave(&path, &vault);
         let mut guard = state.session.lock().expect("session lock");
@@ -469,6 +469,15 @@ fn password_health(state: State<'_, AppState>) -> Result<vault_core::PasswordHea
     with_vault(&state, |v| v.password_health().map_err(map_err))
 }
 
+/// Optional HIBP k-anonymity check via local vault_daemon (requires network + daemon).
+#[tauri::command]
+fn check_pwned_via_daemon(id: String) -> Result<serde_json::Value, String> {
+    daemon_post(
+        "/v1/health/pwned",
+        serde_json::json!({ "id": id }),
+    )
+}
+
 #[tauri::command(rename = "generate_password")]
 fn generate_password_cmd(policy: PasswordPolicy) -> Result<String, String> {
     generate_password(&policy).map_err(map_err)
@@ -632,6 +641,7 @@ pub fn run() {
             import_csv,
             export_csv,
             password_health,
+            check_pwned_via_daemon,
             item_totp_code,
             delete_item,
             list_trash,

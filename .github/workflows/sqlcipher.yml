@@ -1,0 +1,100 @@
+# Optional SQLCipher path (KI-001) — NOT part of required-gate.
+# Default product builds stay sqlite-aead for portable MSVC/CI.
+# Linux + vendored OpenSSL is the supported compile target for sqlcipher feature.
+name: SQLCipher
+
+on:
+  workflow_dispatch:
+  workflow_call:
+  # Weekly canary so the optional path does not bit-rot
+  schedule:
+    - cron: "0 8 * * 1"
+  # Also run when vault storage / feature flags change
+  pull_request:
+    paths:
+      - "crates/vault-core/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "Docs/SQLCIPHER.md"
+      - ".github/workflows/sqlcipher.yml"
+  push:
+    branches: [main, develop]
+    paths:
+      - "crates/vault-core/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "Docs/SQLCIPHER.md"
+      - ".github/workflows/sqlcipher.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sqlcipher-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  sqlcipher-linux:
+    name: vault-core --features sqlcipher (Ubuntu)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Install build deps (OpenSSL compile / perl)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential perl pkg-config
+
+      - name: Unit tests with SQLCipher feature
+        run: cargo test -p vault-core --features sqlcipher
+
+      - name: Assert storage_backend meta under SQLCipher feature
+        run: cargo test -p vault-core --features sqlcipher storage_backend_meta_on_create -- --exact --nocapture
+
+      - name: Build daemon + ffi with vault-core/sqlcipher
+        run: cargo build -p vault-daemon -p vault-ffi --features vault-core/sqlcipher --release
+
+      - name: SQLCipher create/unlock smoke (daemon)
+        run: |
+          set -euo pipefail
+          ./target/release/vault_daemon &
+          echo $! > /tmp/vd-sqlcipher.pid
+          cleanup() { kill "$(cat /tmp/vd-sqlcipher.pid)" 2>/dev/null || true; }
+          trap cleanup EXIT
+
+          for i in $(seq 1 40); do
+            curl -sf http://127.0.0.1:8080/health >/dev/null && break
+            sleep 0.25
+          done
+
+          curl -sf http://127.0.0.1:8080/health | tee /tmp/health.json
+          python3 - <<'PY'
+          import json
+          with open("/tmp/health.json") as f:
+              h = json.load(f)
+          assert h.get("storage_backend") == "sqlcipher-aead", h
+          assert h.get("sqlcipher_feature") is True, h
+          print("health backend OK:", h["storage_backend"])
+          PY
+
+          VAULT=/tmp/kv-sqlcipher-$$.db
+          PASS='SqlCipher-CI-Passphrase-9!'
+          curl -sf -X POST http://127.0.0.1:8080/v1/unlock \
+            -H 'Content-Type: application/json' \
+            -d "{\"path\":\"$VAULT\",\"password\":\"$PASS\",\"create\":true}"
+
+          curl -sf -X POST http://127.0.0.1:8080/v1/lock
+          curl -sf -X POST http://127.0.0.1:8080/v1/unlock \
+            -H 'Content-Type: application/json' \
+            -d "{\"path\":\"$VAULT\",\"password\":\"$PASS\",\"create\":false}"
+
+          # Wrong password must fail closed
+          code=$(curl -s -o /tmp/unlock-fail.json -w '%{http_code}' -X POST http://127.0.0.1:8080/v1/unlock \
+            -H 'Content-Type: application/json' \
+            -d "{\"path\":\"$VAULT\",\"password\":\"wrong\",\"create\":false}")
+          echo "wrong-password HTTP $code body=$(cat /tmp/unlock-fail.json)"
+          test "$code" != "200"
+
+          echo "SQLCipher daemon smoke OK"

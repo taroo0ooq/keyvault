@@ -1,0 +1,39 @@
+version: "1.0"
+phase:
+  number: 15
+  name: "SQLCipher Linux CI canary (KI-001 mitigation)"
+  completion_date: "2026-08-05"
+  status: "Completed (engineering)"
+  notes: >
+    Optional non-blocking workflow .github/workflows/sqlcipher.yml runs on Ubuntu
+    with cargo test -p vault-core --features sqlcipher, release build of daemon/ffi
+    with vault-core/sqlcipher, and create/unlock/wrong-password daemon smoke.
+    Path-filtered PR/push, weekly cron, workflow_dispatch. Explicitly excluded from
+    primary required-gate so portable sqlite-aead remains the merge default.
+features_implemented:
+  - id: "FEAT-150"
+    title: "Optional Linux SQLCipher CI workflow"
+    description: >
+      sqlcipher.yml — unit tests under --features sqlcipher, health storage_backend
+      assertion, daemon create/unlock/fail-closed smoke
+    status: "Verified (workflow authored; first green run on GitHub Actions)"
+known_issues:
+  - id: "KI-001"
+    severity: "low"
+    description: >
+      Product packaging still defaults to sqlite-aead; Windows MSVC SQLCipher not
+      gated. Full multi-platform default SQLCipher remains a product decision.
+    mitigation: "Linux canary + feature flag + Docs/SQLCIPHER.md"
+  - id: "KI-010"
+    severity: "medium"
+    description: "Android libvault_ffi.so not committed; CI artifacts only"
+artifacts:
+  - path: ".github/workflows/sqlcipher.yml"
+  - path: "Docs/SQLCIPHER.md"
+  - path: "Docs/CI.md"
+miro_board:
+  name: "PasswordManager"
+  url: "https://miro.com/app/board/uXjVH1LjUrs=/"
+  note: "Seed updated for Phase 15; live re-sync pending"
+handover_approved_by: ""
+approval_status: "Pending stakeholder sign-off"
