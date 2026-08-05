@@ -74,7 +74,9 @@ jobs:
         with:
           target: "http://127.0.0.1:8080"
           cmd_options: "-a -c .github/zap-rules.tsv"
-          allow_issue_writing: true
+          # Do not let ZAP open Issues on warn/info noise; fail_action + our
+          # failure step below own the hardwired gate and product issue tracker.
+          allow_issue_writing: false
           fail_action: true
           artifact_name: zap-baseline-report
 
