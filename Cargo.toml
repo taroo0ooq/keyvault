@@ -36,7 +36,7 @@ uuid = { version = "1", features = ["v4", "serde"] }
 # Default: plain bundled SQLite + field-level AEAD (KI-001 interim).
 # Opt-in full-file SQLCipher: --features vault-core/sqlcipher
 rusqlite = { version = "0.32", features = ["bundled"] }
-sha1 = "0.10"
+sha1 = "0.11"
 sha2 = "0.10"
 hmac = "0.12"
 base64 = "0.22"
