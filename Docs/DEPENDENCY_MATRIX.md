@@ -87,7 +87,7 @@ Four linked matrices: **component graph**, **library deps**, **feature → stack
 
 | Planned dependency | Actual today | Impact |
 |--------------------|--------------|--------|
-| SQLCipher native | rusqlite + field AEAD | KI-001 |
+| SQLCipher native | optional `--features sqlcipher` + Linux CI canary; default rusqlite bundled + field AEAD | KI-001 mitigated |
 | flutter_rust_bridge | dart:ffi + vault-ffi | Simpler bridge |
 | mTLS client certs | Bearer + QR HMAC | Tunnel auth model |
 | Appium / Flutter Driver | Not primary CI | Mobile E2E gap |
@@ -214,7 +214,7 @@ These edges are **required** for a working product slice:
 5. **Remote access** → tunnel binary **and** Bearer pairing **and** daemon
 6. **CI merge gates** → sast + dast + e2e + phase5-gates (policy)
 
-Soft / optional edges: HIBP, Miro MCP, App Store packaging, full SQLCipher, mTLS.
+Soft / optional edges: HIBP, Miro MCP, App Store packaging, SQLCipher-as-default product decision, mTLS.
 
 ---
 

@@ -19,7 +19,9 @@ Local-first, zero-knowledge password manager spanning Rust core, desktop, mobile
 - **CSV export:** Chrome-style `name,url,username,password,notes,totp` (`GET /v1/export/csv`, desktop)
 - **Password health:** offline weak + reused scan (`GET /v1/health/passwords`, desktop Security)
 - **Trash:** soft-delete with restore / purge / empty trash (schema v3 `deleted_at`)
-- **HIBP:** optional k-anonymity check `POST /v1/health/pwned` (SHA-1 prefix only; network)
+- **HIBP:** optional k-anonymity check `POST /v1/health/pwned` (SHA-1 prefix only; network); desktop **Check breach** button
+- **SQLCipher (optional):** `cargo build -p vault-core --features sqlcipher` for full-file encryption + field AEAD; default CI stays `sqlite-aead` (see [SQLCIPHER.md](./SQLCIPHER.md))
+- **SQLCipher CI canary:** `.github/workflows/sqlcipher.yml` runs Ubuntu tests + daemon create/unlock smoke (path-filtered + weekly; **not** in `required-gate`)
 - **Mobile (Flutter):** UI shell + vault_ffi dart:ffi + local_auth gate for enclave unlock
 - **Extension (MV3):** form overlay autofill via one-shot `/v1/reveal`; optional native messaging host fallback
 - **vault_native_host:** Chrome/Firefox stdio host proxies to loopback daemon (`install-native-host` scripts)

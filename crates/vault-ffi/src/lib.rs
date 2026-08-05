@@ -109,7 +109,7 @@ pub extern "C" fn kv_vault_unlock(path: *const c_char, master_password: *const c
         Ok(s) => s,
         Err(e) => return err_string(e),
     };
-    let mut v = match Vault::open(&path) {
+    let mut v = match Vault::open_with_password(&path, pw) {
         Ok(v) => v,
         Err(e) => return err_string(e),
     };

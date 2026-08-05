@@ -435,7 +435,7 @@ fn handle_unlock(
     let result = if create {
         Vault::create(&path_buf, password)
     } else {
-        Vault::open(&path_buf).and_then(|mut v| {
+        Vault::open_with_password(&path_buf, password).and_then(|mut v| {
             v.unlock(password)?;
             Ok(v)
         })

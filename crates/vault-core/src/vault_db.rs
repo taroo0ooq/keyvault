@@ -24,6 +24,17 @@ use crate::vault_crypto::{
 /// Schema version embedded in vault metadata.
 pub const SCHEMA_VERSION: i32 = 3;
 
+/// Storage backend label written to vault_meta.
+/// - `sqlite-aead`: plain SQLite + field-level AEAD (default / CI)
+/// - `sqlcipher-aead`: SQLCipher full-file key + field-level AEAD (feature `sqlcipher`)
+pub fn storage_backend_label() -> &'static str {
+    if cfg!(feature = "sqlcipher") {
+        "sqlcipher-aead"
+    } else {
+        "sqlite-aead"
+    }
+}
+
 /// SQL DDL matching the SQLCipher-oriented product schema.
 pub const SCHEMA_SQL: &str = r#"
 PRAGMA foreign_keys = ON;
@@ -128,7 +139,7 @@ impl Vault {
             std::fs::create_dir_all(parent)?;
         }
 
-        let conn = Connection::open(&path)?;
+        let conn = open_connection(&path, master_password, true)?;
         migrate_schema(&conn)?;
 
         let (master_key, kdf_params) = derive_master_key_with_fresh_params(master_password)?;
@@ -150,6 +161,7 @@ impl Vault {
             &base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &verifier),
         )?;
         set_meta(&conn, "cipher", "aes-256-gcm")?;
+        set_meta(&conn, "storage_backend", storage_backend_label())?;
         set_meta(&conn, "created_at", &Utc::now().to_rfc3339())?;
 
         Ok(Self {
@@ -160,12 +172,25 @@ impl Vault {
     }
 
     /// Open an existing vault file (locked until [`Vault::unlock`]).
+    ///
+    /// When the `sqlcipher` feature is enabled, the master password is also used
+    /// as the SQLCipher database key (PRAGMA key) before reading schema.
     pub fn open(path: impl AsRef<Path>) -> VaultResult<Self> {
+        // Without password we can only open non-SQLCipher files.
+        // Callers that use SQLCipher must use [`Vault::open_with_password`] first
+        // or unlock path that re-opens — for default builds this is fine.
+        Self::open_with_password(path, "")
+    }
+
+    /// Open vault file applying SQLCipher key when the feature is enabled.
+    ///
+    /// Empty password is allowed only for non-SQLCipher builds (default).
+    pub fn open_with_password(path: impl AsRef<Path>, master_password: &str) -> VaultResult<Self> {
         let path = path.as_ref().to_path_buf();
         if !path.exists() {
             return Err(VaultError::VaultNotFound);
         }
-        let conn = Connection::open(&path)?;
+        let conn = open_connection(&path, master_password, false)?;
         // Ensure schema exists / migrate older vaults (e.g. add totp_enc).
         migrate_schema(&conn)?;
         Ok(Self {
@@ -184,10 +209,22 @@ impl Vault {
     }
 
     /// Unlock with master password; verifies against stored key verifier.
+    ///
+    /// With `sqlcipher`, re-opens the connection under PRAGMA key when needed
+    /// so wrong-password SQLCipher files fail closed.
     pub fn unlock(&mut self, master_password: &str) -> VaultResult<()> {
         if self.master_key.is_some() {
             return Err(VaultError::VaultAlreadyUnlocked);
         }
+
+        #[cfg(feature = "sqlcipher")]
+        {
+            // Re-open with key so page-level decryption matches the password.
+            let conn = open_connection(&self.path, master_password, false)?;
+            migrate_schema(&conn)?;
+            self.conn = conn;
+        }
+
         let kdf_json = get_meta(&self.conn, "kdf_params")?
             .ok_or_else(|| VaultError::Database("missing kdf_params".into()))?;
         let kdf: KdfParams = serde_json::from_str(&kdf_json)?;
@@ -1111,6 +1148,55 @@ fn migrate_schema(conn: &Connection) -> VaultResult<()> {
         conn.execute("ALTER TABLE vault_items ADD COLUMN deleted_at TEXT", [])?;
     }
     set_meta(conn, "schema_version", &SCHEMA_VERSION.to_string())?;
+    // Best-effort backend label (may already exist on create).
+    if get_meta(conn, "storage_backend")?.is_none() {
+        let _ = set_meta(conn, "storage_backend", storage_backend_label());
+    }
+    Ok(())
+}
+
+/// Open a SQLite/SQLCipher connection.
+///
+/// `for_create`: when SQLCipher is enabled, set PRAGMA key before any writes.
+fn open_connection(
+    path: &Path,
+    master_password: &str,
+    for_create: bool,
+) -> VaultResult<Connection> {
+    let conn = Connection::open(path)?;
+    apply_sqlcipher_key(&conn, master_password, for_create)?;
+    Ok(conn)
+}
+
+#[cfg(feature = "sqlcipher")]
+fn apply_sqlcipher_key(
+    conn: &Connection,
+    master_password: &str,
+    for_create: bool,
+) -> VaultResult<()> {
+    if master_password.is_empty() && !for_create {
+        return Err(VaultError::InvalidInput(
+            "SQLCipher vaults require a password to open".into(),
+        ));
+    }
+    // Escape single quotes for PRAGMA key = '...'
+    let escaped = master_password.replace('\'', "''");
+    conn.pragma_update(None, "key", &escaped)
+        .map_err(|e| VaultError::Database(format!("SQLCipher PRAGMA key failed: {e}")))?;
+    // Force a read so wrong keys fail early on existing files.
+    if !for_create {
+        conn.query_row("SELECT count(*) FROM sqlite_master", [], |r| r.get::<_, i64>(0))
+            .map_err(|_| VaultError::AuthenticationFailed)?;
+    }
+    Ok(())
+}
+
+#[cfg(not(feature = "sqlcipher"))]
+fn apply_sqlcipher_key(
+    _conn: &Connection,
+    _master_password: &str,
+    _for_create: bool,
+) -> VaultResult<()> {
     Ok(())
 }
 
@@ -1280,6 +1366,17 @@ Empty,,user,\n\
         let n = dest.import_csv(&csv).unwrap();
         assert_eq!(n, 2);
         assert_eq!(dest.list_items().unwrap().len(), 2);
+    }
+
+    #[test]
+    fn storage_backend_meta_on_create() {
+        let (_dir, vault) = test_vault();
+        let backend = get_meta(&vault.conn, "storage_backend").unwrap();
+        assert_eq!(backend.as_deref(), Some(storage_backend_label()));
+        assert!(
+            backend.as_deref() == Some("sqlite-aead")
+                || backend.as_deref() == Some("sqlcipher-aead")
+        );
     }
 
     #[test]

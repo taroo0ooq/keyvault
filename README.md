@@ -56,10 +56,14 @@ See [docs/passwordmanager.md](docs/passwordmanager.md) for the full product prom
 | 11 | Dart mock TOTP + extension TOTP | **Engineering complete** — see `.handover/handover_phase_11.yaml` |
 | 12 | CSV export + password health | **Engineering complete** — see `.handover/handover_phase_12.yaml` |
 | 13 | Trash + HIBP k-anonymity | **Engineering complete** — see `.handover/handover_phase_13.yaml` |
+| 14 | SQLCipher feature scaffold | **Engineering complete** — optional `--features sqlcipher` (see `Docs/SQLCIPHER.md`) |
+| 15 | SQLCipher Linux CI canary | **Engineering complete** — optional workflow (not required-gate) |
 
 ## CI/CD (primary development path)
 
-**All merges require a green [CI](.github/workflows/ci.yml) run.** Local builds are for iteration only.
+**All merges require a green [CI](.github/workflows/ci.yml) run (`required-gate`).** Local builds are for iteration only.
+
+**Phase policy:** Do not start the next development phase while `required-gate` is red **or** any open GitHub Issue labeled `automated` (DAST/E2E/SAST failures) remains unfixed. See [Docs/CI.md](Docs/CI.md).
 
 | Gate | Tools (fail-closed) |
 |------|---------------------|
@@ -68,8 +72,9 @@ See [docs/passwordmanager.md](docs/passwordmanager.md) for the full product prom
 | **Gates** | Unit/integration tests, footprint &lt; 15 MB, smoke-phase4 |
 | **E2E** | Playwright (extension) |
 | **FFI** | vault-ffi host + Android jniLibs |
+| **SQLCipher** (optional) | Ubuntu `--features sqlcipher` — not part of required-gate |
 
-Details: [Docs/CI.md](Docs/CI.md) · Dependency matrix: [Docs/DEPENDENCY_MATRIX.md](Docs/DEPENDENCY_MATRIX.md)
+Details: [Docs/CI.md](Docs/CI.md) · [Docs/SQLCIPHER.md](Docs/SQLCIPHER.md) · Dependency matrix: [Docs/DEPENDENCY_MATRIX.md](Docs/DEPENDENCY_MATRIX.md)
 
 ```bash
 # Typical contributor flow

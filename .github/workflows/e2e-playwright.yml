@@ -66,6 +66,16 @@ jobs:
         with:
           script: |
             const fs = require('fs');
+            const short = context.sha.substring(0, 7);
+            const title = `[E2E] Playwright failure — ${short}`;
+            // Deduplicate: one open issue per SHA
+            const q = `repo:${context.repo.owner}/${context.repo.repo} is:issue is:open label:automated label:e2e in:title ${short}`;
+            const found = await github.rest.search.issuesAndPullRequests({ q, per_page: 1 });
+            if (found.data.total_count > 0) {
+              core.info(`Open E2E issue already exists for ${short}; not creating duplicate.`);
+              return;
+            }
+
             const templatePath = '.github/templates/bug_report_template.md';
             let template = fs.existsSync(templatePath)
               ? fs.readFileSync(templatePath, 'utf8')
@@ -80,9 +90,9 @@ jobs:
               .replaceAll(
                 '{{RUN_URL}}',
                 `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
-              );
+              )
+              + '\n\n### Policy\n**Block merge / next development phase** until Playwright is green and this issue is closed.\n';
 
-            const title = `[E2E] Playwright failure — ${context.sha.substring(0, 7)}`;
             try {
               await github.rest.issues.create({
                 owner: context.repo.owner,

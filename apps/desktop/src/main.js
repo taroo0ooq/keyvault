@@ -457,6 +457,35 @@ function initVaultUi() {
     }
   });
 
+  $("#btn-hibp")?.addEventListener("click", async () => {
+    const id = $("#item-id").value;
+    if (!id) {
+      showVaultError("Select a saved item first");
+      return;
+    }
+    if (
+      !confirm(
+        "Check this password against Have I Been Pwned via vault_daemon?\n" +
+          "Only a SHA-1 prefix is sent (k-anonymity). Requires daemon + network.",
+      )
+    ) {
+      return;
+    }
+    showVaultError("Checking HIBP…");
+    try {
+      const r = await invoke("check_pwned_via_daemon", { id });
+      if (r.pwned) {
+        showVaultError(
+          `⚠ Found in breaches: count≈${r.count} (“${r.title || id}”)`,
+        );
+      } else {
+        showVaultError(`✓ Not found in HIBP range for “${r.title || id}”`);
+      }
+    } catch (err) {
+      showVaultError(String(err));
+    }
+  });
+
   $("#btn-delete").addEventListener("click", async () => {
     const id = $("#item-id").value;
     if (!id) {

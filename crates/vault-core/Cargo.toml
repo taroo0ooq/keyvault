@@ -10,6 +10,14 @@ readme = "README.md"
 name = "vault_core"
 crate-type = ["rlib", "cdylib", "staticlib"]
 
+[features]
+default = []
+# Full-file SQLCipher via rusqlite (vendored OpenSSL). Default builds keep
+# plain SQLite + field-level AEAD (KI-001 interim). Enable with:
+#   cargo test -p vault-core --features sqlcipher
+# Schema is identical; SQLCipher adds an outer passphrase key on the DB file.
+sqlcipher = ["rusqlite/bundled-sqlcipher-vendored-openssl"]
+
 [dependencies]
 argon2 = { workspace = true }
 aes-gcm = { workspace = true }
