@@ -68,6 +68,10 @@ jobs:
             const fs = require('fs');
             const short = context.sha.substring(0, 7);
             const title = `[E2E] Playwright failure — ${short}`;
+            if (context.actor === 'dependabot[bot]' || (context.ref || '').includes('dependabot/')) {
+              core.info('Skipping E2E issue for Dependabot run.');
+              return;
+            }
             // Deduplicate: one open issue per SHA
             const q = `repo:${context.repo.owner}/${context.repo.repo} is:issue is:open label:automated label:e2e in:title ${short}`;
             const found = await github.rest.search.issuesAndPullRequests({ q, per_page: 1 });
