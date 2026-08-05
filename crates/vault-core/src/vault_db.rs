@@ -705,6 +705,17 @@ impl Vault {
         )?;
         tx.commit()?;
 
+        // SQLCipher outer file key must track the master password.
+        #[cfg(feature = "sqlcipher")]
+        {
+            let escaped = new_password.replace('\'', "''");
+            self.conn
+                .pragma_update(None, "rekey", &escaped)
+                .map_err(|e| {
+                    VaultError::Database(format!("SQLCipher PRAGMA rekey failed: {e}"))
+                })?;
+        }
+
         self.master_key = Some(new_key);
         // Old enclave blob is bound to previous MK — remove if present.
         let _ = Self::clear_enclave_sidecar(&self.path);
@@ -1238,7 +1249,8 @@ mod tests {
             let v = Vault::create(&path, "master-pass-one").unwrap();
             assert!(v.is_unlocked());
         }
-        let mut v = Vault::open(&path).unwrap();
+        // SQLCipher builds require the password at open (PRAGMA key).
+        let mut v = Vault::open_with_password(&path, "master-pass-one").unwrap();
         assert!(!v.is_unlocked());
         v.unlock("master-pass-one").unwrap();
         assert!(v.is_unlocked());
@@ -1252,11 +1264,20 @@ mod tests {
         let dir = tempdir().unwrap();
         let path = dir.path().join("wrong.vault");
         Vault::create(&path, "correct-password").unwrap();
-        let mut v = Vault::open(&path).unwrap();
+        // Open with correct SQLCipher key (or plain SQLite), then wrong MK fails.
+        let mut v = Vault::open_with_password(&path, "correct-password").unwrap();
         assert!(matches!(
             v.unlock("incorrect-password"),
             Err(VaultError::AuthenticationFailed)
         ));
+        // With SQLCipher, a wrong open key must also fail closed.
+        #[cfg(feature = "sqlcipher")]
+        {
+            assert!(matches!(
+                Vault::open_with_password(&path, "incorrect-password"),
+                Err(VaultError::AuthenticationFailed)
+            ));
+        }
     }
 
     #[test]
@@ -1317,12 +1338,17 @@ mod tests {
             .unwrap();
         assert_eq!(vault.get_item(&id).unwrap().password, "secret-pw");
 
-        // Old password no longer unlocks.
+        // Old password no longer unlocks (SQLCipher rekey + new MK verifier).
         vault.lock();
-        let mut v2 = Vault::open(vault.path()).unwrap();
-        assert!(v2
-            .unlock("test-master-password-32chars!!")
-            .is_err());
+        #[cfg(feature = "sqlcipher")]
+        {
+            assert!(
+                Vault::open_with_password(vault.path(), "test-master-password-32chars!!").is_err(),
+                "old SQLCipher key must fail after rekey"
+            );
+        }
+        let mut v2 = Vault::open_with_password(vault.path(), "new-master-password-ok").unwrap();
+        assert!(v2.unlock("test-master-password-32chars!!").is_err());
         v2.unlock("new-master-password-ok").unwrap();
         assert_eq!(v2.get_item(&id).unwrap().password, "secret-pw");
         let _ = dir;
@@ -1496,7 +1522,7 @@ Empty,,user,\n\
             let item = VaultItem::new("Site", None, "secret");
             v.add_item(&item).unwrap();
         }
-        let mut v = Vault::open(&path).unwrap();
+        let mut v = Vault::open_with_password(&path, "master-enclave-pass").unwrap();
         assert!(!v.is_unlocked());
         let blob = Vault::load_enclave_blob(&path).unwrap().expect("sidecar");
         v.unlock_with_enclave_blob(&blob).unwrap();
