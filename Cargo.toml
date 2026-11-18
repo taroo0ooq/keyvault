@@ -26,7 +26,7 @@ vault-core = { path = "crates/vault-core" }
 argon2 = "0.5"
 aes-gcm = "0.10"
 chacha20poly1305 = "0.10"
-rand = "0.8"
+rand = "0.9"
 rand_core = "0.6"
 zeroize = { version = "1.8", features = ["derive"] }
 thiserror = "2"
