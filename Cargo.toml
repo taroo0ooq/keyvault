@@ -35,7 +35,11 @@ serde_json = "1"
 uuid = { version = "1", features = ["v4", "serde"] }
 # Default: plain bundled SQLite + field-level AEAD (KI-001 interim).
 # Opt-in full-file SQLCipher: --features vault-core/sqlcipher
-rusqlite = { version = "0.32", features = ["bundled"] }
+# 0.43 bundles SQLite >= 3.54 (libsqlite3-sys >= 0.40), which patches
+# RUSTSEC-2026-0459 / CVE-2026-119375. 0.41+ is the first patched line;
+# 0.43 also ships SQLCipher built on SQLite 3.54.1 (sqlcipher-src 420).
+# MSRV is Rust 1.89; CI uses stable.
+rusqlite = { version = "0.43", features = ["bundled"] }
 sha1 = "0.10"
 sha2 = "0.10"
 hmac = "0.12"

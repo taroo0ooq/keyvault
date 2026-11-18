@@ -179,7 +179,10 @@ jobs:
         working-directory: apps/desktop
         run: |
           npm ci
-          npm audit --audit-level=high
+          # Same bar as `npm audit --audit-level=high`, plus a committed
+          # allowlist for advisories with no patched release. An allowlisted
+          # id still fails the job once its expiry date has passed.
+          python3 ../../scripts/npm_audit_high.py --allowlist npm-audit-allowlist.json
 
   flutter-analyzer:
     name: Flutter analyze + test
