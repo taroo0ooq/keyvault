@@ -70,7 +70,7 @@ jobs:
           PY
 
       - name: OWASP ZAP baseline scan (fail_action)
-        uses: zaproxy/action-baseline@v0.14.0
+        uses: zaproxy/action-baseline@v0.15.0
         with:
           target: "http://127.0.0.1:8080"
           cmd_options: "-a -c .github/zap-rules.tsv"
