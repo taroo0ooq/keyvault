@@ -1,0 +1,11 @@
+{
+  "note": "Exceptions to npm audit --audit-level=high for apps/desktop. Every entry needs a GitHub advisory id, the package it applies to, an expiry (YYYY-MM-DD), and a reason. The SAST job rejects the allowlist after expiry and still fails on every other high or critical advisory.",
+  "advisories": [
+    {
+      "id": "GHSA-fc5q-39xc-vjpf",
+      "package": "picomatch",
+      "expires": "2027-02-18",
+      "reason": "picomatch <=4.0.7 (latest release) has no patched version. Vite 6, fdir, and tinyglobby use it only to compile developer-authored or hard-coded globs while building the desktop shell. The ReDoS needs an attacker-controlled extglob pattern; vault data and request paths are match subjects, not patterns, and picomatch is not part of the production Tauri bundle. Drop this entry when a picomatch release above 4.0.7 is available and the lockfile is updated to it."
+    }
+  ]
+}

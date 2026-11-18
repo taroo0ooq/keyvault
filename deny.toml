@@ -16,7 +16,14 @@ exclude = ["keyvault-desktop"]
 version = 2
 yanked = "deny"
 unmaintained = "workspace"
-ignore = []
+ignore = [
+    # Informational "unmaintained" (not a vulnerability). No chrono release
+    # clears RUSTSEC-2026-0543; the suggested replacements are different crates
+    # (jiff, time). VaultItem timestamps are chrono DateTime<Utc> values stored
+    # as RFC3339 and serialized on the daemon API, so a crate swap is a schema
+    # change rather than a security bump. Revisit by the expiry.
+    { id = "RUSTSEC-2026-0543", reason = "chrono is unmaintained with no patched release; timestamp migration is a separate schema change", expiry = "2027-02-18" },
+]
 
 [licenses]
 version = 2
@@ -38,6 +45,13 @@ allow = [
     "0BSD",
     "NCSA",
     "CDLA-Permissive-2.0",
+    # sqlcipher-src (optional SQLCipher build of libsqlite3-sys, enabled by
+    # `cargo deny --all-features` via vault-core's sqlcipher feature) vendors
+    # SQLite under the Blessing and libtomcrypt under WTFPL. Both are
+    # permissive. They show up as their own crate license only once rusqlite
+    # 0.43 / libsqlite3-sys 0.40 is resolved.
+    "blessing",
+    "WTFPL",
 ]
 exceptions = []
 
