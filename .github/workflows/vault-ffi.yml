@@ -31,7 +31,7 @@ jobs:
         run: cargo build -p vault-ffi --release
 
       - name: Upload host library
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: vault-ffi-linux-x64
           path: target/release/libvault_ffi.so
@@ -69,7 +69,7 @@ jobs:
           find apps/mobile/android/app/src/main/jniLibs -type f -ls
 
       - name: Upload Android jniLibs
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: vault-ffi-android-jniLibs
           path: apps/mobile/android/app/src/main/jniLibs/**
