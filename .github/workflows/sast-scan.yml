@@ -93,6 +93,12 @@ jobs:
         run: cargo install cargo-audit --locked
       # Fail on known vulnerabilities; unmaintained crates are reported but do not block
       # until an upgrade path is chosen (see Docs/CI.md).
+      # cargo-audit cannot expire an ignore. This check fails the job once an
+      # ignore in .cargo/audit.toml is past the expires date written above it.
+      - name: cargo-audit ignore expiry
+        run: |
+          python3 scripts/check_cargo_audit_ignores.py --self-test
+          python3 scripts/check_cargo_audit_ignores.py
       - name: cargo audit
         run: cargo audit
 
@@ -181,7 +187,9 @@ jobs:
           npm ci
           # Same bar as `npm audit --audit-level=high`, plus a committed
           # allowlist for advisories with no patched release. An allowlisted
-          # id still fails the job once its expiry date has passed.
+          # id still fails the job once its expiry date has passed, and it
+          # only matches the package named on that allowlist entry.
+          python3 ../../scripts/npm_audit_high.py --self-test
           python3 ../../scripts/npm_audit_high.py --allowlist npm-audit-allowlist.json
 
   flutter-analyzer:

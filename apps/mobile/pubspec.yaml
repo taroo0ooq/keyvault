@@ -32,6 +32,8 @@ dependencies:
     sdk: flutter
 
   cupertino_icons: ^1.0.8
+  # Flutter stable (CI channel) deprecates package:flutter/material.dart after
+  # v3.47.0-0.0.pre. analyze --fatal-infos fails on that library import.
   material_ui: ^1.11.1
   crypto: ^3.0.6
   ffi: ^2.1.3
