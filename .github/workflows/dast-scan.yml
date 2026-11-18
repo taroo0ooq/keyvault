@@ -89,7 +89,7 @@ jobs:
 
       - name: Open GitHub Issue on DAST failure
         if: failure()
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const short = context.sha.substring(0, 7);
