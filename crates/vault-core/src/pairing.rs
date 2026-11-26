@@ -237,6 +237,24 @@ pub fn find_device_by_token<'a>(
         .find(|d| api_token_matches(token, &d.api_token_hash))
 }
 
+/// Local file that holds the daemon operator token (mode 0600).
+///
+/// The desktop app reads this so it can still manage the tunnel and pairing
+/// after bearer auth turns on. Remote tunnel clients cannot read it.
+pub fn operator_token_path() -> Option<std::path::PathBuf> {
+    if let Some(path) = std::env::var_os("VAULT_DAEMON_TOKEN_FILE") {
+        if !path.is_empty() {
+            return Some(std::path::PathBuf::from(path));
+        }
+    }
+    let home = std::env::var_os("HOME").or_else(|| std::env::var_os("USERPROFILE"))?;
+    Some(
+        std::path::PathBuf::from(home)
+            .join(".keyvault")
+            .join("daemon-operator.token"),
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

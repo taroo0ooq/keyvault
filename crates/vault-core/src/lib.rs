@@ -31,8 +31,8 @@ pub mod vault_db;
 pub use error::{VaultError, VaultResult};
 pub use pairing::{
     api_token_matches, create_pairing_offer, find_device_by_token, hash_api_token,
-    issue_device_api_token, verify_pairing_token, PairedDevice, PairingOffer, PairingQrPayload,
-    PairingSecret, DEFAULT_PAIRING_TTL_SECS,
+    issue_device_api_token, operator_token_path, verify_pairing_token, PairedDevice, PairingOffer,
+    PairingQrPayload, PairingSecret, DEFAULT_PAIRING_TTL_SECS,
 };
 pub use tunnel::{
     resolve_binary, tunnel_command_line, TunnelAgent, TunnelConfig, TunnelProvider, TunnelStatus,

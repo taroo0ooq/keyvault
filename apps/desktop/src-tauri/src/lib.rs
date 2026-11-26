@@ -11,7 +11,8 @@ use std::time::{Duration, Instant};
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager, State};
 use vault_core::{
-    generate_password, score_password, EntropyScore, PasswordPolicy, Vault, VaultItem,
+    generate_password, operator_token_path, score_password, EntropyScore, PasswordPolicy, Vault,
+    VaultItem,
 };
 
 /// Default idle lock timeout (seconds). Product default: 5 minutes.
@@ -499,10 +500,33 @@ fn ensure_parent_dir(path: String) -> Result<(), String> {
 
 const DEFAULT_DAEMON: &str = "http://127.0.0.1:8080";
 
+fn read_operator_token() -> Option<String> {
+    if let Ok(token) = std::env::var("VAULT_DAEMON_TOKEN") {
+        let token = token.trim().to_string();
+        if !token.is_empty() {
+            return Some(token);
+        }
+    }
+    let path = operator_token_path()?;
+    let token = std::fs::read_to_string(path).ok()?;
+    let token = token.trim().to_string();
+    if token.is_empty() {
+        None
+    } else {
+        Some(token)
+    }
+}
+
+fn with_operator_auth(req: ureq::Request) -> ureq::Request {
+    match read_operator_token() {
+        Some(token) => req.set("Authorization", &format!("Bearer {token}")),
+        None => req,
+    }
+}
+
 fn daemon_get(path: &str) -> Result<serde_json::Value, String> {
     let url = format!("{DEFAULT_DAEMON}{path}");
-    ureq::get(&url)
-        .timeout(Duration::from_secs(5))
+    with_operator_auth(ureq::get(&url).timeout(Duration::from_secs(5)))
         .call()
         .map_err(map_err)?
         .into_json()
@@ -511,8 +535,7 @@ fn daemon_get(path: &str) -> Result<serde_json::Value, String> {
 
 fn daemon_post(path: &str, body: serde_json::Value) -> Result<serde_json::Value, String> {
     let url = format!("{DEFAULT_DAEMON}{path}");
-    ureq::post(&url)
-        .timeout(Duration::from_secs(15))
+    with_operator_auth(ureq::post(&url).timeout(Duration::from_secs(15)))
         .send_json(body)
         .map_err(map_err)?
         .into_json()

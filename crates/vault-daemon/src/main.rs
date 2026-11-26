@@ -13,9 +13,9 @@ use std::time::{Duration, Instant};
 use tiny_http::{Header, Method, Request, Response, Server, StatusCode};
 use vault_core::{
     create_pairing_offer, find_device_by_token, generate_password, hash_api_token, health_check,
-    issue_device_api_token, score_password, verify_pairing_token, PairedDevice, PairingOffer,
-    PairingSecret, PasswordPolicy, TunnelAgent, TunnelConfig, TunnelProvider, Vault, VaultItem,
-    DEFAULT_PAIRING_TTL_SECS,
+    issue_device_api_token, operator_token_path, score_password, verify_pairing_token, PairedDevice,
+    PairingOffer, PairingSecret, PasswordPolicy, TunnelAgent, TunnelConfig, TunnelProvider, Vault,
+    VaultItem, DEFAULT_PAIRING_TTL_SECS,
 };
 
 const DEFAULT_BIND: &str = "127.0.0.1:8080";
@@ -49,21 +49,36 @@ struct AppState {
     require_auth: bool,
 }
 
-/// Paths that never require Bearer (health / pairing claim / public status).
-fn is_public_path(path: &str) -> bool {
-    matches!(
-        path,
-        "/" | "/health"
-            | "/health/"
-            | "/v1/status"
-            | "/v1/tunnel/status"
-            | "/v1/pairing/claim"
-            | "/v1/pairing/create"
-            | "/v1/pairing/devices"
-            | "/v1/tunnel/start"
-            | "/v1/tunnel/stop"
-            | "/v1/auth/mode"
-    )
+/// Who may call a route once bearer auth is on (tunnel running or
+/// `VAULT_DAEMON_REQUIRE_AUTH=1`).
+///
+/// Pairing *claim* stays public so a phone can finish a QR handshake.
+/// Creating an offer, listing devices, and starting or stopping the tunnel
+/// are operator-only: those actions mint or revoke the credentials that
+/// unlock the vault. A public tunnel otherwise lets anyone enroll themselves.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum RouteAccess {
+    Public,
+    Bearer,
+    Operator,
+}
+
+fn route_access(method: &Method, path: &str) -> RouteAccess {
+    match (method, path) {
+        (&Method::Post, "/v1/pairing/create")
+        | (&Method::Get, "/v1/pairing/devices")
+        | (&Method::Post, "/v1/tunnel/start")
+        | (&Method::Post, "/v1/tunnel/stop") => RouteAccess::Operator,
+        (&Method::Get, "/")
+        | (&Method::Get, "/health")
+        | (&Method::Get, "/health/")
+        | (&Method::Get, "/v1/status")
+        | (&Method::Get, "/v1/tunnel/status")
+        | (&Method::Get, "/v1/auth/mode")
+        | (&Method::Post, "/v1/pairing/claim") => RouteAccess::Public,
+        _ if is_protected_vault_path(path) => RouteAccess::Bearer,
+        _ => RouteAccess::Public,
+    }
 }
 
 /// Vault data paths that must use Bearer when auth is required.
@@ -93,6 +108,44 @@ fn is_protected_vault_path(path: &str) -> bool {
 
 fn auth_required(state: &AppState) -> bool {
     state.require_auth || state.tunnel.status().running
+}
+
+/// Write the operator token where the local desktop app can read it.
+/// Remote tunnel clients never see this file. Failure is logged; the token
+/// is still printed once at startup.
+fn persist_operator_token(token: &str) {
+    let Some(path) = operator_token_path() else {
+        eprintln!("operator token file skipped: home directory is not set");
+        return;
+    };
+    if let Some(parent) = path.parent() {
+        if let Err(err) = std::fs::create_dir_all(parent) {
+            eprintln!("operator token directory: {err}");
+            return;
+        }
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let _ = std::fs::set_permissions(parent, std::fs::Permissions::from_mode(0o700));
+        }
+    }
+
+    let mut opts = std::fs::OpenOptions::new();
+    opts.write(true).create(true).truncate(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        opts.mode(0o600);
+    }
+    match opts.open(&path) {
+        Ok(mut file) => {
+            use std::io::Write;
+            if let Err(err) = writeln!(file, "{token}") {
+                eprintln!("operator token file: {err}");
+            }
+        }
+        Err(err) => eprintln!("operator token file: {err}"),
+    }
 }
 
 fn extract_bearer(request: &Request) -> Option<String> {
@@ -153,6 +206,7 @@ fn main() {
 
     let operator_token = issue_device_api_token();
     let operator_token_hash = hash_api_token(&operator_token);
+    persist_operator_token(&operator_token);
     let require_auth = env::var("VAULT_DAEMON_REQUIRE_AUTH")
         .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
         .unwrap_or(false);
@@ -197,11 +251,33 @@ fn main() {
             continue;
         }
 
-        // Auth gate for vault data when tunnel is active (or forced).
-        if is_protected_vault_path(&path) && auth_required(&state) {
-            if let Err(resp) = check_bearer(&state, &request) {
-                let _ = request.respond(resp);
-                continue;
+        // Auth gate when the tunnel is active (or forced). The tunnel proxies
+        // to loopback, so the daemon cannot tell a local caller from a remote
+        // one. Operator routes stay closed to device tokens: a paired phone
+        // must not mint another device or shut the tunnel down.
+        if auth_required(&state) {
+            match route_access(&method, &path) {
+                RouteAccess::Public => {}
+                RouteAccess::Bearer => {
+                    if let Err(resp) = check_bearer(&state, &request) {
+                        let _ = request.respond(resp);
+                        continue;
+                    }
+                }
+                RouteAccess::Operator => match check_bearer(&state, &request) {
+                    Ok(id) if id == "operator" => {}
+                    Ok(_) => {
+                        let _ = request.respond(json_response(
+                            StatusCode(403),
+                            r#"{"error":"operator token required"}"#.into(),
+                        ));
+                        continue;
+                    }
+                    Err(resp) => {
+                        let _ = request.respond(resp);
+                        continue;
+                    }
+                },
             }
         }
 
@@ -250,7 +326,7 @@ fn main() {
                         "/v1/pairing/claim",
                         "/v1/pairing/devices"
                     ],
-                    "notes": "loopback only; Bearer required for vault routes when tunnel running",
+                    "notes": "loopback only; Bearer required for vault routes when tunnel running; pairing create and tunnel control require the operator token",
                 })
                 .to_string();
                 json_response(StatusCode(200), body)
@@ -309,10 +385,7 @@ fn main() {
             (Method::Post, "/v1/pairing/create") => handle_pairing_create(&state, addr.port()),
             (Method::Post, "/v1/pairing/claim") => handle_pairing_claim(&state, &mut request),
             (Method::Get, "/v1/pairing/devices") => handle_pairing_devices(&state),
-            _ => {
-                let _ = is_public_path(&path);
-                json_response(StatusCode(404), r#"{"error":"not_found"}"#.into())
-            }
+            _ => json_response(StatusCode(404), r#"{"error":"not_found"}"#.into()),
         };
 
         if let Err(e) = request.respond(response) {
@@ -1732,5 +1805,43 @@ fn add_cors(response: &mut Response<std::io::Cursor<Vec<u8>>>) {
         &b"Content-Type, Authorization"[..],
     ) {
         response.add_header(h);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{route_access, RouteAccess};
+    use tiny_http::Method;
+
+    #[test]
+    fn pairing_create_is_operator_only_when_auth_is_on() {
+        assert_eq!(
+            route_access(&Method::Post, "/v1/pairing/create"),
+            RouteAccess::Operator
+        );
+        assert_eq!(
+            route_access(&Method::Get, "/v1/pairing/devices"),
+            RouteAccess::Operator
+        );
+        assert_eq!(
+            route_access(&Method::Post, "/v1/tunnel/start"),
+            RouteAccess::Operator
+        );
+        assert_eq!(
+            route_access(&Method::Post, "/v1/tunnel/stop"),
+            RouteAccess::Operator
+        );
+    }
+
+    #[test]
+    fn pairing_claim_stays_public_and_vault_reads_need_bearer() {
+        assert_eq!(
+            route_access(&Method::Post, "/v1/pairing/claim"),
+            RouteAccess::Public
+        );
+        assert_eq!(route_access(&Method::Get, "/health"), RouteAccess::Public);
+        assert_eq!(route_access(&Method::Post, "/v1/reveal"), RouteAccess::Bearer);
+        assert_eq!(route_access(&Method::Post, "/v1/export"), RouteAccess::Bearer);
+        assert_eq!(route_access(&Method::Get, "/v1/items"), RouteAccess::Bearer);
     }
 }
